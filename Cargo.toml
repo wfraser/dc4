@@ -1,0 +1,5 @@
+[package]
+
+name = "dc4"
+version = "0.0.1"
+authors = ["William R. Fraser <wfraser@codewise.org>"]
