@@ -44,7 +44,8 @@ fn print_usage() {
 }
 
 fn main() {
-    let expression = "--expression=";
+    let expression_str = "--expression=";
+    let file_str = "--file=";
 
     let mut process_stdin = true;
     let args: Vec<String> = env::args().collect();
@@ -79,11 +80,30 @@ fn main() {
             skip = 1;
             process_stdin = false;
         }
-        else if &arg[..expression.len()] == expression.as_slice() {
-            let p = &arg[expression.len()..];
+        else if arg.len() > expression_str.len()
+                && &arg[..expression_str.len()] == expression_str.as_slice() {
+            let p = &arg[expression_str.len()..];
 
-            println!("process expression: {}", &p);
-            dc4::program(&p);
+            println!("process expression: {}", p);
+            dc4::program(p);
+            process_stdin = false;
+        }
+        else if arg == "-f" {
+            if i + 1 == args.len() {
+                println!("\"-f\" must be followed by an argument.");
+                return;
+            }
+
+            let p = args[i + 1].as_slice();
+            println!("process file: {}", p);
+            skip = 1;
+            process_stdin = false;
+        }
+        else if arg.len() > file_str.len()
+                && &arg[..file_str.len()] == file_str.as_slice() {
+            let p = &arg[file_str.len()..];
+
+            println!("process file: {}", p);
             process_stdin = false;
         }
         else if i != 0 {
