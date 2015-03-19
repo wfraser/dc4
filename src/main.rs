@@ -1,25 +1,53 @@
-//#![feature(old_io)]
-#![feature(os)]
 #![feature(core)]
+#![feature(env)]
+#![feature(collections)]
 
 extern crate dc4;
+extern crate collections;
 
-//use std::old_io;
-use std::os;
+use std::env;
+use collections::borrow::ToOwned;
+
+/*
+fn basename(path: &str) -> &str {
+
+    let mut i = path.len();
+    for c in path.chars().rev() {
+        if c == '/' {
+            return &path[i..];
+        }
+
+        i -= 1;
+    }
+
+    path
+}
+*/
+
+fn basename(path: &str) -> &str {
+    match path.split('/').rev().next() {
+        Some(s) => s,
+        _ => path
+    }
+}
+
+fn progname() -> String {
+    basename(env::args().next().expect("no program name?!").as_slice()).to_owned()
+}
 
 fn print_version() {
-    println!("{}: version 1", os::args()[0]);
+    println!("{}: version 1", progname());
 }
 
 fn print_usage() {
-    println!("{}: usage", os::args()[0]);
+    println!("usage: {} [options and stuff]", progname());
 }
 
 fn main() {
     let expression = "--expression=";
 
     let mut process_stdin = true;
-    let args = os::args();
+    let args: Vec<String> = env::args().collect();
     let mut skip = 0;
     
     for i in 0..args.len() {
@@ -35,6 +63,10 @@ fn main() {
            print_version();
            return;
         }
+        else if arg == "-h" || arg == "--help" {
+            print_usage();
+            return;
+        }
         else if arg == "-e" {
             if i + 1 == args.len() {
                 println!("\"-e\" must be followed by an argument.");
@@ -47,8 +79,9 @@ fn main() {
             skip = 1;
             process_stdin = false;
         }
-        else if args[i][0..expression.len()] == expression.as_slice() {
-            let p = args[i][expression.len()..args[i].len()];
+        else if &arg[..expression.len()] == expression.as_slice() {
+            let p = &arg[expression.len()..];
+
             println!("process expression: {}", &p);
             dc4::program(&p);
             process_stdin = false;
