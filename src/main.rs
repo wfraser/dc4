@@ -16,6 +16,8 @@ fn print_usage() {
 }
 
 fn main() {
+    let expression = "--expression=";
+
     let mut process_stdin = true;
     let args = os::args();
     let mut skip = 0;
@@ -43,6 +45,12 @@ fn main() {
             println!("process expression: {}", p);
             dc4::program(p);
             skip = 1;
+            process_stdin = false;
+        }
+        else if args[i][0..expression.len()] == expression.as_slice() {
+            let p = args[i][expression.len()..args[i].len()];
+            println!("process expression: {}", &p);
+            dc4::program(&p);
             process_stdin = false;
         }
         else if i != 0 {
