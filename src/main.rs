@@ -8,22 +8,6 @@ extern crate collections;
 use std::env;
 use collections::borrow::ToOwned;
 
-/*
-fn basename(path: &str) -> &str {
-
-    let mut i = path.len();
-    for c in path.chars().rev() {
-        if c == '/' {
-            return &path[i..];
-        }
-
-        i -= 1;
-    }
-
-    path
-}
-*/
-
 fn basename(path: &str) -> &str {
     match path.split('/').rev().next() {
         Some(s) => s,
@@ -50,6 +34,7 @@ fn main() {
     let mut process_stdin = true;
     let args: Vec<String> = env::args().collect();
     let mut skip = 0;
+    let mut dc = dc4::DC4::new();
     
     for i in 0..args.len() {
 
@@ -76,7 +61,7 @@ fn main() {
 
             let p = args[i + 1].as_slice();
             println!("process expression: {}", p);
-            dc4::program(p);
+            dc.program(p);
             skip = 1;
             process_stdin = false;
         }
@@ -85,7 +70,7 @@ fn main() {
             let p = &arg[expression_str.len()..];
 
             println!("process expression: {}", p);
-            dc4::program(p);
+            dc.program(p);
             process_stdin = false;
         }
         else if arg == "-f" {
