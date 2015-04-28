@@ -40,18 +40,15 @@ enum DCInput<'a> {
     Stdin,
 }
 
-fn main() {
-    let expression_str: &str = "--expression=";
+fn parse_arguments<'a>(args: &'a Vec<String>) -> Option<Vec<DCInput<'a>>> {
+    let mut inputs: Vec<DCInput<'a>> = Vec::new();
+
+    let expression_str = "--expression=";
     let file_str = "--file=";
 
     let mut process_stdin = true;
     let mut seen_double_dash = false;
 
-    let args: Vec<String> = env::args().collect();
-    let mut inputs: Vec<DCInput> = Vec::new();
-
-    let mut dc = dc4::DC4::new();
-    
     let mut skip = 0; // number of args to skip next time around
     for i in 0..args.len() {
 
@@ -68,16 +65,16 @@ fn main() {
         }
         else if arg == "-V" || arg == "--version" {
            print_version();
-           return;
+           return None;
         }
         else if arg == "-h" || arg == "--help" {
             print_usage();
-            return;
+            return None;
         }
         else if arg == "-e" {
             if i + 1 == args.len() {
                 println!("\"-e\" must be followed by an argument.");
-                return;
+                return None;
             }
 
             let p = &args[i + 1];
@@ -96,7 +93,7 @@ fn main() {
         else if arg == "-f" {
             if i + 1 == args.len() {
                 println!("\"-f\" must be followed by an argument.");
-                return;
+                return None;
             }
 
             let p = &args[i + 1];
@@ -127,6 +124,22 @@ fn main() {
     if process_stdin {
         inputs.push(DCInput::Stdin);
     }
+
+
+    Some(inputs)
+}
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    
+    let mut inputs: Vec<DCInput>;
+    
+    match parse_arguments(&args) {
+        Some(x) => inputs = x,
+        None => return,
+    }
+
+    let mut dc = dc4::DC4::new();
 
     for input in inputs {
         match input {
