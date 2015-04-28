@@ -1,5 +1,3 @@
-#![feature(core)]
-#![feature(env)]
 #![feature(collections)]
 
 extern crate dc4;
@@ -16,7 +14,7 @@ fn basename(path: &str) -> &str {
 }
 
 fn progname() -> String {
-    basename(env::args().next().expect("no program name?!").as_slice()).to_owned()
+    basename(env::args().next().expect("no program name?!").as_ref()).to_owned()
 }
 
 fn print_version() {
@@ -27,14 +25,21 @@ fn print_usage() {
     println!("usage: {} [options and stuff]", progname());
 }
 
+enum DCInput<'a> {
+    Expression(&'a str),
+    File(&'a str),
+}
+
 fn main() {
-    let expression_str = "--expression=";
+    let expression_str: &str = "--expression=";
     let file_str = "--file=";
 
     let mut process_stdin = true;
     let args: Vec<String> = env::args().collect();
     let mut skip = 0;
     let mut dc = dc4::DC4::new();
+
+    let mut inputs: Vec<DCInput> = Vec::new();
     
     for i in 0..args.len() {
 
@@ -43,7 +48,7 @@ fn main() {
             continue;
         }
 
-        let arg = args[i].as_slice();
+        let arg = &args[i];
 
         if arg == "-V" || arg == "--version" {
            print_version();
@@ -59,18 +64,17 @@ fn main() {
                 return;
             }
 
-            let p = args[i + 1].as_slice();
-            println!("process expression: {}", p);
-            dc.program(p);
+            let p = &args[i + 1];
+            inputs.push(DCInput::Expression(p));
+
             skip = 1;
             process_stdin = false;
         }
         else if arg.len() > expression_str.len()
-                && &arg[..expression_str.len()] == expression_str.as_slice() {
+                && &arg[..expression_str.len()] == expression_str {
             let p = &arg[expression_str.len()..];
 
-            println!("process expression: {}", p);
-            dc.program(p);
+            inputs.push(DCInput::Expression(p));
             process_stdin = false;
         }
         else if arg == "-f" {
@@ -79,25 +83,36 @@ fn main() {
                 return;
             }
 
-            let p = args[i + 1].as_slice();
-            println!("process file: {}", p);
+            let p = &args[i + 1];
+            inputs.push(DCInput::File(p));
             skip = 1;
             process_stdin = false;
         }
         else if arg.len() > file_str.len()
-                && &arg[..file_str.len()] == file_str.as_slice() {
-            let p = &arg[file_str.len()..];
+                && &arg[..file_str.len()] == file_str {
 
-            println!("process file: {}", p);
+            let p = &arg[file_str.len()..];
+            inputs.push(DCInput::File(p));
             process_stdin = false;
         }
         else if i != 0 {
-            //TODO read file
-            println!("process file {}", arg);
+            inputs.push(DCInput::File(arg));
             process_stdin = false;
         }
     }
 
+    for input in inputs {
+        match input {
+            DCInput::Expression(expr) => {
+                println!("process expression {}", expr);
+                dc.program(expr);
+            },
+            DCInput::File(file) => {
+                //TODO read file
+                println!("process file {}", file);
+            },
+        }
+    }
 
     if process_stdin {
         println!("process stdin");
