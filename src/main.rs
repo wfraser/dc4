@@ -28,6 +28,7 @@ fn print_usage() {
 enum DCInput<'a> {
     Expression(&'a str),
     File(&'a str),
+    Stdin,
 }
 
 fn main() {
@@ -35,12 +36,14 @@ fn main() {
     let file_str = "--file=";
 
     let mut process_stdin = true;
-    let args: Vec<String> = env::args().collect();
-    let mut skip = 0;
-    let mut dc = dc4::DC4::new();
+    let mut seen_double_dash = false;
 
+    let args: Vec<String> = env::args().collect();
     let mut inputs: Vec<DCInput> = Vec::new();
+
+    let mut dc = dc4::DC4::new();
     
+    let mut skip = 0; // number of args to skip next time around
     for i in 0..args.len() {
 
         if skip > 0 {
@@ -50,7 +53,11 @@ fn main() {
 
         let arg = &args[i];
 
-        if arg == "-V" || arg == "--version" {
+        if seen_double_dash {
+            inputs.push(DCInput::File(arg));
+            process_stdin = false;
+        }
+        else if arg == "-V" || arg == "--version" {
            print_version();
            return;
         }
@@ -88,6 +95,13 @@ fn main() {
             skip = 1;
             process_stdin = false;
         }
+        else if arg == "--" {
+            seen_double_dash = true;
+        }
+        else if arg == "-" {
+            inputs.push(DCInput::Stdin);
+            process_stdin = false;
+        }
         else if arg.len() > file_str.len()
                 && &arg[..file_str.len()] == file_str {
 
@@ -101,6 +115,10 @@ fn main() {
         }
     }
 
+    if process_stdin {
+        inputs.push(DCInput::Stdin);
+    }
+
     for input in inputs {
         match input {
             DCInput::Expression(expr) => {
@@ -111,10 +129,10 @@ fn main() {
                 //TODO read file
                 println!("process file {}", file);
             },
+            DCInput::Stdin => {
+                //TODO read stdin
+                println!("process stdin");
+            },
         }
-    }
-
-    if process_stdin {
-        println!("process stdin");
     }
 }
