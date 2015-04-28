@@ -1,3 +1,12 @@
+//
+// dc4 :: A Unix dc(1) implementation in Rust.
+//
+// This is the program entry point.
+// It parses command line arguments and invokes the dc4 library.
+//
+// Copyright (c) 2015 by William R. Fraser
+//
+
 #![feature(collections)]
 
 extern crate dc4;

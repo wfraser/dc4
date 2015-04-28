@@ -1,3 +1,9 @@
+//
+// dc4 :: A Unix dc(1) implementation in Rust
+//
+// Copyright (c) 2015 by William R. Fraser
+//
+
 pub struct DC4 {
     x: i32
 }
