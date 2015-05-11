@@ -7,13 +7,9 @@
 // Copyright (c) 2015 by William R. Fraser
 //
 
-#![feature(collections)]
-
 extern crate dc4;
-extern crate collections;
 
 use std::env;
-use collections::borrow::ToOwned;
 
 fn basename(path: &str) -> &str {
     match path.split('/').rev().next() {
