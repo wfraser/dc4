@@ -149,12 +149,12 @@ fn main() {
         let result = match input {
             DCInput::Expression(expr) => {
                 println!("process expression {:?}", expr);
-                dc.program(&mut Cursor::new(expr.as_bytes()))
+                dc.program(&mut Cursor::new(expr.as_bytes()), &mut io::stdout())
             },
             DCInput::File(path) => {
                 println!("process file {:?}", path);
                 match File::open(path) {
-                    Ok(mut file) => dc.program(&mut file),
+                    Ok(mut file) => dc.program(&mut file, &mut io::stdout()),
                     Err(e)       => {
                         println!("File open failed on {:?}: {}", path, e);
                         DC4Result::Terminate
@@ -163,7 +163,7 @@ fn main() {
             },
             DCInput::Stdin => {
                 println!("process stdin");
-                dc.program(&mut io::stdin())
+                dc.program(&mut io::stdin(), &mut io::stdout())
             },
         };
 

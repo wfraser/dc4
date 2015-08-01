@@ -5,6 +5,7 @@
 //
 
 use std::io::Read;
+use std::io::Write;
 
 pub struct DC4;
 
@@ -39,12 +40,16 @@ impl DC4 {
         DC4
     }
 
-    pub fn program<R>(&mut self, r: &mut R) -> DC4Result where R: Read {
-        loop_over_stream(r, |c| self.loop_iteration(c) )
+    pub fn program<R, W>(&mut self, r: &mut R, w: &mut W) -> DC4Result
+            where R: Read,
+            W: Write {
+        loop_over_stream(r, |c| self.loop_iteration(c, w) )
     }
 
-    fn loop_iteration(&mut self, c: char) -> DC4Result {
+    fn loop_iteration<W>(&mut self, c: char, w: &mut W) -> DC4Result
+            where W: Write {
         //TODO
+        w.write("TODO\n".as_bytes()).unwrap();
         DC4Result::Continue
     }
 }
