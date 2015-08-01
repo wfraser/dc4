@@ -7,12 +7,20 @@
 // Copyright (c) 2015 by William R. Fraser
 //
 
+#![cfg_attr(test, allow(dead_code))]
+
 extern crate dc4;
 
 use std::env;
+use std::fs::File;
+use std::io;
+use std::io::Cursor;
+
+use dc4::DC4;
+use dc4::DC4Result;
 
 fn basename(path: &str) -> &str {
-    match path.split('/').rev().next() {
+    match path.rsplitn(1, '/').next() {
         Some(s) => s,
         _ => path
     }
@@ -127,30 +135,43 @@ fn parse_arguments<'a>(args: &'a Vec<String>) -> Option<Vec<DCInput<'a>>> {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    
+
     let mut inputs: Vec<DCInput>;
-    
+
     match parse_arguments(&args) {
         Some(x) => inputs = x,
         None => return,
     }
 
-    let mut dc = dc4::DC4::new();
+    let mut dc = DC4::new();
 
     for input in inputs {
-        match input {
+        let result = match input {
             DCInput::Expression(expr) => {
-                println!("process expression {}", expr);
-                dc.program(expr);
+                println!("process expression {:?}", expr);
+                dc.program(&mut Cursor::new(expr.as_bytes()))
             },
-            DCInput::File(file) => {
-                //TODO read file
-                println!("process file {}", file);
+            DCInput::File(path) => {
+                println!("process file {:?}", path);
+                match File::open(path) {
+                    Ok(mut file) => dc.program(&mut file),
+                    Err(e)       => {
+                        println!("File open failed on {:?}: {}", path, e);
+                        DC4Result::Terminate
+                    }
+                }
             },
             DCInput::Stdin => {
-                //TODO read stdin
                 println!("process stdin");
+                dc.program(&mut io::stdin())
             },
+        };
+
+        match result {
+            DC4Result::Terminate => return,
+            _ => ()
+            // note that QuitLevels does nothing: if there are quit levels left at the end of an
+            // input, they are ignored.
         }
     }
 }

@@ -4,20 +4,47 @@
 // Copyright (c) 2015 by William R. Fraser
 //
 
-pub struct DC4 {
-    x: i32
+use std::io::Read;
+
+pub struct DC4;
+
+pub enum DC4Result {
+    Terminate,
+    QuitLevels(i32),
+    Continue
+}
+
+fn loop_over_stream<S, F>(s: &mut S, mut f: F) -> DC4Result
+        where S: Read, F: FnMut(char) -> DC4Result {
+    // TODO: change this to s.chars() once Read::chars is stable
+    for maybe_char in s.bytes() {
+        match maybe_char {
+            Ok(c)       => {
+                match f(c as char) {
+                    DC4Result::Continue => (), // next loop iteration
+                    other               => return other
+                }
+            },
+            Err(err)    => {
+                println!("Error reading from input: {}", err);
+                return DC4Result::Terminate;
+            }
+        }
+    }
+    DC4Result::Continue
 }
 
 impl DC4 {
     pub fn new() -> DC4 {
-        DC4 {
-            x: 42,
-        }
+        DC4
     }
 
-    pub fn program(&mut self, s: &str) -> i32 {
+    pub fn program<R>(&mut self, r: &mut R) -> DC4Result where R: Read {
+        loop_over_stream(r, |c| self.loop_iteration(c) )
+    }
+
+    fn loop_iteration(&mut self, c: char) -> DC4Result {
         //TODO
-        self.x += s.len() as i32;
-        self.x
+        DC4Result::Continue
     }
 }
