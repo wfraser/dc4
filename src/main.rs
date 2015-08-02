@@ -148,11 +148,11 @@ fn main() {
     for input in inputs {
         let result = match input {
             DCInput::Expression(expr) => {
-                println!("process expression {:?}", expr);
+                println!("process expression {:?}", expr); //DEBUG
                 dc.program(&mut Cursor::new(expr.as_bytes()), &mut io::stdout())
             },
             DCInput::File(path) => {
-                println!("process file {:?}", path);
+                println!("process file {:?}", path); //DEBUG
                 match File::open(path) {
                     Ok(mut file) => dc.program(&mut file, &mut io::stdout()),
                     Err(e)       => {
@@ -162,7 +162,7 @@ fn main() {
                 }
             },
             DCInput::Stdin => {
-                println!("process stdin");
+                println!("process stdin"); //DEBUG
                 dc.program(&mut io::stdin(), &mut io::stdout())
             },
         };

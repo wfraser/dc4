@@ -49,7 +49,7 @@ impl DC4 {
     fn loop_iteration<W>(&mut self, c: char, w: &mut W) -> DC4Result
             where W: Write {
         //TODO
-        w.write("TODO\n".as_bytes()).unwrap();
+        write!(w, "unimplemented: {:?}\n", c).unwrap();
         DC4Result::Continue
     }
 }
