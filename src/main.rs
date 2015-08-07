@@ -17,10 +17,10 @@ use std::io;
 use std::io::Cursor;
 
 use dc4::DC4;
-use dc4::DC4Result;
+use dc4::DCResult;
 
 fn basename(path: &str) -> &str {
-    match path.rsplitn(1, '/').next() {
+    match path.rsplitn(2, '/').next() {
         Some(s) => s,
         _ => path
     }
@@ -44,7 +44,8 @@ enum DCInput<'a> {
     Stdin,
 }
 
-fn parse_arguments<'a>(args: &'a Vec<String>) -> Option<Vec<DCInput<'a>>> {
+fn parse_arguments<'a>(args: &'a Vec<String>)
+        -> Option<Vec<DCInput<'a>>> {
     let mut inputs: Vec<DCInput<'a>> = Vec::new();
 
     let expression_str = "--expression=";
@@ -143,7 +144,7 @@ fn main() {
         None => return,
     }
 
-    let mut dc = DC4::new();
+    let mut dc = DC4::new(progname());
 
     for input in inputs {
         let result = match input {
@@ -156,8 +157,8 @@ fn main() {
                 match File::open(path) {
                     Ok(mut file) => dc.program(&mut file, &mut io::stdout()),
                     Err(e)       => {
-                        println!("File open failed on {:?}: {}", path, e);
-                        DC4Result::Terminate
+                        println!("{}: File open failed on {:?}: {}", progname(), path, e);
+                        DCResult::Terminate
                     }
                 }
             },
@@ -168,10 +169,10 @@ fn main() {
         };
 
         match result {
-            DC4Result::Terminate => return,
-            _ => ()
-            // note that QuitLevels does nothing: if there are quit levels left at the end of an
-            // input, they are ignored.
+            DCResult::Terminate => return,
+            DCResult::QuitLevels(_) => (),  // nothing: if there are quit levels left at the end of
+                                            // an input, they are ignored.
+            DCResult::Continue => ()
         }
     }
 }

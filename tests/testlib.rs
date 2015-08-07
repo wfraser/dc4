@@ -3,7 +3,7 @@ extern crate dc4;
 use std::io::Cursor;
 
 fn dc4_run(expr: &str) -> String {
-    let mut dc = dc4::DC4::new();
+    let mut dc = dc4::DC4::new("dc4 cargo test".to_string());
     let mut out = Vec::<u8>::new();
 
     dc.program(&mut Cursor::new(expr.as_bytes()), &mut out);
@@ -14,6 +14,11 @@ fn dc4_run(expr: &str) -> String {
 #[test]
 fn test_noop() {
     assert_eq!(dc4_run(""), "");
+}
+
+#[test]
+fn test_at() {
+    assert_eq!(dc4_run("@"), "dc4\n");
 }
 
 #[test]
