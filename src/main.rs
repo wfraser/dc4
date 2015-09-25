@@ -137,7 +137,7 @@ fn parse_arguments<'a>(args: &'a Vec<String>)
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    let mut inputs: Vec<DCInput>;
+    let inputs: Vec<DCInput>;
 
     match parse_arguments(&args) {
         Some(x) => inputs = x,
