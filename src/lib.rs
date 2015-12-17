@@ -91,6 +91,78 @@ impl DC4 {
         }
     }
 
+    /*
+    fn pop_num<W>(&mut self, w: &mut W) -> Option<BigInt>
+            where W: Write {
+        match self.stack.last() {
+            Some(&DCValue::Num(_)) => {
+                // type match, pop and return the moved value
+                match self.stack.pop() {
+                    Some(DCValue::Num(n)) => Some(n),
+                    _ => panic!("impossible!"),
+                }
+            }
+            None => {
+                self.error(w, format_args!("stack empty"));
+                None
+            },
+            _ => {
+                self.error(w, format_args!("non-numeric value"));
+                None
+            },
+        }
+    }
+    */
+
+    fn binary_operator<W, F>(&mut self, w: &mut W, f: F) where W: Write, F: FnOnce(BigInt, BigInt) -> Option<DCValue> {
+        let len = self.stack.len();
+        if len < 2 {
+            self.error(w, format_args!("stack empty"));
+            return;
+        }
+
+        {
+            let slice = &self.stack[len - 2 .. len];
+            match slice[0] {
+                DCValue::Num(_) => (),
+                _ => {
+                    self.error(w, format_args!("non-numeric value"));
+                    return;
+                }
+            }
+            match slice[1] {
+                DCValue::Num(_) => (),
+                _ => {
+                    self.error(w, format_args!("non-numeric value"));
+                    return;
+                }
+            }
+        }
+
+        // once slice patterns are stable:
+        /*
+        match [self.stack.pop(), self.stack.pop()] {
+            [Some(DCValue::Num(b)), Some(DCValue::Num(a))] =>
+                match f(a, b) {
+                    Some(value) => self.stack.push(value),
+                    _ => ()
+                },
+            _ => unreachable!()
+        }
+        */
+
+        match self.stack.pop() {
+            Some(DCValue::Num(b)) => match self.stack.pop() {
+                Some(DCValue::Num(a)) => match f(a, b) {
+                    Some(value) => self.stack.push(value),
+                    _ => ()
+                },
+                _ => unreachable!()
+            },
+            _ => unreachable!()
+        }
+    }
+
     pub fn program<R, W>(&mut self, r: &mut R, w: &mut W) -> DCResult
             where R: Read,
             W: Write {
@@ -225,6 +297,11 @@ impl DC4 {
             'I' => self.stack.push(DCValue::Num(BigInt::from_u32(self.iradix).unwrap())),
             'O' => self.stack.push(DCValue::Num(BigInt::from_u32(self.oradix).unwrap())),
             'K' => self.stack.push(DCValue::Num(BigInt::from_u32(self.scale).unwrap())),
+
+            '+' => self.binary_operator(w, |a, b| Some(DCValue::Num(a + b))),
+            '-' => self.binary_operator(w, |a, b| Some(DCValue::Num(a - b))),
+            '*' => self.binary_operator(w, |a, b| Some(DCValue::Num(a * b))),
+            '/' => self.binary_operator(w, |a, b| Some(DCValue::Num(a / b))),
 
             // catch-all for unhandled characters
             _ => self.error(w, format_args!("{:?} (0{:o}) unimplemented", c, c as u32))
