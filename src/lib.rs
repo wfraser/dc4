@@ -72,14 +72,15 @@ impl DC4 {
 
     fn print_elem<W>(&self, elem: &DCValue, w: &mut W) where W: Write {
         match elem {
-            &DCValue::Num(ref n) => write!(w, "{}\n", n.to_str_radix(self.oradix)).unwrap(),
-            &DCValue::Str(ref s) => write!(w, "{}\n", s).unwrap(),
+            &DCValue::Num(ref n) => write!(w, "{}", n.to_str_radix(self.oradix)).unwrap(),
+            &DCValue::Str(ref s) => write!(w, "{}", s).unwrap(),
         }
     }
 
     fn print_stack<W>(&self, w: &mut W) where W: Write {
         for elem in self.stack.iter().rev() {
             self.print_elem(elem, w);
+            write!(w, "\n").unwrap();
         }
     }
 
@@ -122,7 +123,15 @@ impl DC4 {
             'f' => self.print_stack(w),
 
             'p' => match self.stack.last() {
-                Some(elem) => self.print_elem(elem, w),
+                Some(elem) => {
+                    self.print_elem(elem, w);
+                    write!(w, "\n").unwrap();
+                },
+                None => self.error(w, format_args!("stack empty")),
+            },
+
+            'P' => match self.stack.pop() {
+                Some(elem) => self.print_elem(&elem, w),
                 None => self.error(w, format_args!("stack empty")),
             },
 
