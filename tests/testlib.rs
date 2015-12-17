@@ -25,3 +25,30 @@ fn test_at() {
 fn test_f() {
     assert_eq!(dc4_run("1 2 3 f"), "3\n2\n1\n");
 }
+
+#[test]
+fn test_input_radix() {
+    assert_eq!(dc4_run("16i FFFF f"), "65535\n");
+}
+
+#[test]
+fn test_output_radix() {
+    assert_eq!(dc4_run("16o 65535 f"), "FFFF\n");
+}
+
+#[test]
+fn test_weird_overflow() {
+    // yes, this is actually what Unix dc does.
+    // it doesn't check that digits are within the current input radix
+    assert_eq!(dc4_run("12A3 f"), "1303\n");
+}
+
+#[test]
+fn test_p() {
+    assert_eq!(dc4_run("1 2 3 p"), "3\n");
+}
+
+#[test]
+fn test_n() {
+    assert_eq!(dc4_run("1 2 3 n"), "3");
+}
