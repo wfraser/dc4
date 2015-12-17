@@ -28,6 +28,7 @@ pub struct DC4 {
     input_num: Option<BigInt>,
     input_str: String,
     bracket_level: u32,
+    negative: bool,
 }
 
 pub enum DCResult {
@@ -72,6 +73,7 @@ impl DC4 {
             input_num: Option::None,
             input_str: String::new(),
             bracket_level: 0,
+            negative: false,
         }
     }
 
@@ -135,11 +137,22 @@ impl DC4 {
 
         if !self.input_num.is_none() {
             //println!("pushing: {:?}", self.input_num.as_ref().unwrap());
-            self.stack.push(DCValue::Num(self.input_num.take().unwrap()));
+            let mut n = self.input_num.take().unwrap();
+            if self.negative {
+                n = n * BigInt::from_i32(-1).unwrap();
+            }
+            self.stack.push(DCValue::Num(n));
+            self.negative = false;
+        }
+        else if self.negative {
+            self.stack.push(DCValue::Num(Zero::zero()));
+            self.negative = false;
         }
 
         match c {
             ' '|'\t'|'\r'|'\n' => (), // ignore whitespace
+
+            '_' => self.negative = true,
 
              // nonstandard extension: print the implementation name
             '@' => write!(w, "dc4\n").unwrap(),
@@ -181,10 +194,31 @@ impl DC4 {
                             self.oradix = radix;
                         },
                         Some(_) => self.error(w, format_args!("output base must be a number greater than 1")),
-                        _ => self.error(w, format_args!("error interpreting output base (overflow?)"))
+                        _ => if let Some(_) = n.to_i32() {
+                                self.error(w, format_args!("output base must be a number greater than 1"));
+                            } else {
+                                self.error(w, format_args!("error interpreting output base (overflow?)"));
+                            },
                     },
                 Some(DCValue::Str(_)) =>
                     self.error(w, format_args!("output base must be a number greater than 1")),
+                None => self.error(w, format_args!("stack empty")),
+            },
+
+            'k' => match self.stack.pop() {
+                Some(DCValue::Num(ref n)) =>
+                    match n.to_u32() {
+                        Some(scale) => {
+                            self.scale = scale;
+                        },
+                        _ => if let Some(_) = n.to_i32() {
+                                self.error(w, format_args!("scale must be a nonnegative number"));
+                            }
+                            else {
+                                self.error(w, format_args!("error interpreting scale (overflow?)"));
+                            },
+                    },
+                Some(DCValue::Str(_)) => self.error(w, format_args!("scale must be a nonnegative number")),
                 None => self.error(w, format_args!("stack empty")),
             },
 

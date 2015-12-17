@@ -62,3 +62,26 @@ fn test_string_basic() {
 fn test_string_nesting() {
     assert_eq!(dc4_run("[Hello[World]]f"), "Hello[World]\n");
 }
+
+#[test]
+fn test_negative() {
+    assert_eq!(dc4_run("12_34_56 78 f"), "78\n-56\n-34\n12\n");
+    assert_eq!(dc4_run("___f"), "0\n0\n0\n");
+}
+
+#[test]
+fn test_invalid_radix() {
+    {
+        let error = "dc4 cargo test: input base must be a number between 2 and 16 (inclusive)\n";
+        assert_eq!(dc4_run("1i f"), error);
+        assert_eq!(dc4_run("17i f"), error);
+        assert_eq!(dc4_run("_10i f"), error);
+        assert_eq!(dc4_run("[bad]i f"), error);
+    }
+    {
+        let error = "dc4 cargo test: output base must be a number greater than 1\n";
+        assert_eq!(dc4_run("1o f"), error);
+        assert_eq!(dc4_run("_10o f"), error);
+        assert_eq!(dc4_run("[bad]o f"), error);
+    }
+}
