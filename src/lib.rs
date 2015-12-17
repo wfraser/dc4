@@ -130,7 +130,7 @@ impl DC4 {
                 None => self.error(w, format_args!("stack empty")),
             },
 
-            'P' => match self.stack.pop() {
+            'n' => match self.stack.pop() {
                 Some(elem) => self.print_elem(&elem, w),
                 None => self.error(w, format_args!("stack empty")),
             },
