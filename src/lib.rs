@@ -10,6 +10,7 @@ use std::io::Read;
 use std::io::Write;
 use std::fmt;
 use std::fmt::Arguments;
+use std::mem;
 use num::traits::{FromPrimitive, ToPrimitive};
 use num::{BigInt, Zero};
 
@@ -25,6 +26,8 @@ pub struct DC4 {
     iradix: u32,
     oradix: u32,
     input_num: Option<BigInt>,
+    input_str: String,
+    bracket_level: u32,
 }
 
 pub enum DCResult {
@@ -56,7 +59,7 @@ fn loop_over_stream<S, F>(s: &mut S, mut f: F) -> DCResult
 impl DC4 {
     pub fn shaddap(self) {
         // Silence warnings about things that intentionally aren't used yet.
-        (self.scale, DCValue::Str(String::new()));
+        (self.scale);
     }
 
     pub fn new(program_name: String) -> DC4 {
@@ -67,6 +70,8 @@ impl DC4 {
             iradix: 10,
             oradix: 10,
             input_num: Option::None,
+            input_str: String::new(),
+            bracket_level: 0,
         }
     }
 
@@ -92,6 +97,25 @@ impl DC4 {
 
     fn loop_iteration<W>(&mut self, c: char, w: &mut W) -> DCResult
             where W: Write {
+
+        if self.bracket_level > 0 {
+            if c == '[' {
+                self.bracket_level += 1;
+            }
+            else if c == ']' {
+                self.bracket_level -= 1;
+                if self.bracket_level == 0 {
+                    let mut value = String::new();
+                    mem::swap(&mut value, &mut self.input_str);
+                    self.stack.push(DCValue::Str(value));
+                }
+            }
+
+            if self.bracket_level > 0 {
+                self.input_str.push(c);
+            }
+            return DCResult::Continue;
+        }
 
         if (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') {
             if self.input_num.is_none() {
@@ -119,6 +143,8 @@ impl DC4 {
 
              // nonstandard extension: print the implementation name
             '@' => write!(w, "dc4\n").unwrap(),
+
+            '[' => self.bracket_level += 1,
 
             'f' => self.print_stack(w),
 

@@ -52,3 +52,13 @@ fn test_p() {
 fn test_n() {
     assert_eq!(dc4_run("1 2 3 n"), "3");
 }
+
+#[test]
+fn test_string_basic() {
+    assert_eq!(dc4_run("[Hello, World!]f"), "Hello, World!\n");
+}
+
+#[test]
+fn test_string_nesting() {
+    assert_eq!(dc4_run("[Hello[World]]f"), "Hello[World]\n");
+}
