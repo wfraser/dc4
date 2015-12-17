@@ -10,7 +10,7 @@ use std::io::Read;
 use std::io::Write;
 use std::fmt;
 use std::fmt::Arguments;
-use num::traits::FromPrimitive;
+use num::traits::{FromPrimitive, ToPrimitive};
 use num::{BigInt, Zero};
 
 enum DCValue {
@@ -72,7 +72,7 @@ impl DC4 {
 
     fn print_elem<W>(&self, elem: &DCValue, w: &mut W) where W: Write {
         match elem {
-            &DCValue::Num(ref n) => write!(w, "{}", n.to_str_radix(self.oradix)).unwrap(),
+            &DCValue::Num(ref n) => write!(w, "{}", n.to_str_radix(self.oradix).to_uppercase()).unwrap(),
             &DCValue::Str(ref s) => write!(w, "{}", s).unwrap(),
         }
     }
@@ -134,6 +134,37 @@ impl DC4 {
                 Some(elem) => self.print_elem(&elem, w),
                 None => self.error(w, format_args!("stack empty")),
             },
+
+            'i' => match self.stack.pop() {
+                Some(DCValue::Num(ref n)) =>
+                    match n.to_u32() {
+                        Some(radix) if radix >= 2 && radix <= 16 => {
+                             self.iradix = radix;
+                        },
+                        _ => self.error(w, format_args!("input base must be a number between 2 and 16 (inclusive)")),
+                    },
+                Some(DCValue::Str(_)) =>
+                    self.error(w, format_args!("input base must be a number between 2 and 16 (inclusive)")),
+                None => self.error(w, format_args!("stack empty")),
+            },
+
+            'o' => match self.stack.pop() {
+                Some(DCValue::Num(ref n)) =>
+                    match n.to_u32() {
+                        Some(radix) if radix >= 2 => {
+                            self.oradix = radix;
+                        },
+                        Some(_) => self.error(w, format_args!("output base must be a number greater than 1")),
+                        _ => self.error(w, format_args!("error interpreting output base (overflow?)"))
+                    },
+                Some(DCValue::Str(_)) =>
+                    self.error(w, format_args!("output base must be a number greater than 1")),
+                None => self.error(w, format_args!("stack empty")),
+            },
+
+            'I' => self.stack.push(DCValue::Num(BigInt::from_u32(self.iradix).unwrap())),
+            'O' => self.stack.push(DCValue::Num(BigInt::from_u32(self.oradix).unwrap())),
+            'K' => self.stack.push(DCValue::Num(BigInt::from_u32(self.scale).unwrap())),
 
             // catch-all for unhandled characters
             _ => self.error(w, format_args!("{:?} (0{:o}) unimplemented", c, c as u32))
