@@ -12,7 +12,7 @@ use std::fmt;
 use std::fmt::Arguments;
 use std::mem;
 use num::traits::{FromPrimitive, ToPrimitive};
-use num::{BigInt, Zero};
+use num::{BigInt, Zero, Integer};
 
 enum DCValue {
     Str(String),
@@ -116,7 +116,7 @@ impl DC4 {
 
     fn binary_operator<W, F>(&mut self, w: &mut W, f: F)
             where W: Write,
-            F: FnOnce(&BigInt, &BigInt) -> Result<Option<DCValue>, String> {
+            F: Fn(&BigInt, &BigInt) -> Result<Option<DCValue>, String> {
 
         let result: Result<Option<DCValue>, String>;
 
@@ -160,6 +160,54 @@ impl DC4 {
             },
             Err(message) => {
                 self.error(w, format_args!("{}", message));
+            }
+        }
+    }
+
+    fn binary_operator2<W, F>(&mut self, w: &mut W, f: F)
+            where W: Write,
+            F: Fn(&BigInt, &BigInt) -> Result<Vec<DCValue>, String> {
+
+        let maybe_results: Result<Vec<DCValue>, String>;
+
+        {
+            let a: &BigInt;
+            let b: &BigInt;
+
+            let len = self.stack.len();
+            if len < 2 {
+                self.error(w, format_args!("stack empty"));
+                return;
+            }
+
+            match self.stack[len - 2] {
+                DCValue::Num(ref n) => { a = &n; },
+                _ => {
+                    self.error(w, format_args!("non-numeric value"));
+                    return;
+                }
+            }
+            match self.stack[len - 1] {
+                DCValue::Num(ref n) => { b = &n; },
+                _ => {
+                    self.error(w, format_args!("non-numeric value"));
+                    return;
+                }
+            }
+
+            maybe_results = f(a, b);
+        }
+
+        match maybe_results {
+            Ok(results) => {
+                self.stack.pop();
+                self.stack.pop();
+                for result in results {
+                    self.stack.push(result);
+                }
+            },
+            Err(msg) => {
+                self.error(w, format_args!("{}", msg));
             }
         }
     }
@@ -304,7 +352,6 @@ impl DC4 {
             '*' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a * b)))),
             '/' => {
                 self.binary_operator(w, |a, b| {
-                    println!("a = {:?}, b = {:?}", a, b);
                     if b.is_zero() {
                         Err(format!("divide by zero"))
                     }
@@ -313,6 +360,19 @@ impl DC4 {
                     }
                 });
             },
+
+            // quotient and remainder
+            '~' => {
+                self.binary_operator2(w, |a, b| {
+                    if b.is_zero() {
+                        Err(format!("divide by zero"))
+                    }
+                    else {
+                        let div_rem = a.div_rem(b);
+                        Ok(vec![ DCValue::Num(div_rem.0), DCValue::Num(div_rem.1) ])
+                    }
+                });
+            }
 
             // catch-all for unhandled characters
             _ => self.error(w, format_args!("{:?} (0{:o}) unimplemented", c, c as u32))

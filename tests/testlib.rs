@@ -98,6 +98,7 @@ fn test_arithmetic() {
     assert_eq!(dc4_run("_51 5 /f"), "-10\n");
     assert_eq!(dc4_run("51 _5 /f"), "-10\n");
     assert_eq!(dc4_run("5 50 /f"), "0\n");
+    assert_eq!(dc4_run("53 5 ~f"), "3\n10\n");
 }
 
 #[test]
@@ -105,4 +106,5 @@ fn test_invalid_arithmetic() {
     assert_eq!(dc4_run("[shoe] 7 *f"), "dc4 cargo test: non-numeric value\n7\nshoe\n");
     assert_eq!(dc4_run("7[shoe] *f"),  "dc4 cargo test: non-numeric value\nshoe\n7\n");
     assert_eq!(dc4_run("3 0 /f"), "dc4 cargo test: divide by zero\n0\n3\n");
+    assert_eq!(dc4_run("3 0 ~f"), "dc4 cargo test: divide by zero\n0\n3\n");
 }
