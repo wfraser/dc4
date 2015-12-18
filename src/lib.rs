@@ -114,39 +114,42 @@ impl DC4 {
     }
     */
 
+    fn get_two_ints<W>(&mut self, w: &mut W) -> Option<(&BigInt, &BigInt)> where W: Write {
+        let a: &BigInt;
+        let b: &BigInt;
+
+        let len = self.stack.len();
+        if len < 2 {
+            self.error(w, format_args!("stack empty"));
+            return None;
+        }
+
+        match self.stack[len - 2] {
+            DCValue::Num(ref n) => { a = &n; },
+            _ => {
+                self.error(w, format_args!("non-numeric value"));
+                return None;
+            }
+        }
+        match self.stack[len - 1] {
+            DCValue::Num(ref n) => { b = &n; },
+            _ => {
+                self.error(w, format_args!("non-numeric value"));
+                return None;
+            }
+        }
+        Some((a, b))
+    }
+
     fn binary_operator<W, F>(&mut self, w: &mut W, f: F)
             where W: Write,
             F: Fn(&BigInt, &BigInt) -> Result<Option<DCValue>, String> {
 
         let result: Result<Option<DCValue>, String>;
 
-        // scope to contain the immutable borrows of self.
-        {
-            let a: &BigInt;
-            let b: &BigInt;
-
-            let len = self.stack.len();
-            if len < 2 {
-                self.error(w, format_args!("stack empty"));
-                return;
-            }
-
-            match self.stack[len - 2] {
-                DCValue::Num(ref n) => { a = &n; },
-                _ => {
-                    self.error(w, format_args!("non-numeric value"));
-                    return;
-                }
-            }
-            match self.stack[len - 1] {
-                DCValue::Num(ref n) => { b = &n; },
-                _ => {
-                    self.error(w, format_args!("non-numeric value"));
-                    return;
-                }
-            }
-
-            result = f(a, b);
+        match self.get_two_ints(w) {
+            Some((a, b)) => { result = f(a, b); },
+            None => return,
         }
 
         match result {
@@ -170,32 +173,9 @@ impl DC4 {
 
         let maybe_results: Result<Vec<DCValue>, String>;
 
-        {
-            let a: &BigInt;
-            let b: &BigInt;
-
-            let len = self.stack.len();
-            if len < 2 {
-                self.error(w, format_args!("stack empty"));
-                return;
-            }
-
-            match self.stack[len - 2] {
-                DCValue::Num(ref n) => { a = &n; },
-                _ => {
-                    self.error(w, format_args!("non-numeric value"));
-                    return;
-                }
-            }
-            match self.stack[len - 1] {
-                DCValue::Num(ref n) => { b = &n; },
-                _ => {
-                    self.error(w, format_args!("non-numeric value"));
-                    return;
-                }
-            }
-
-            maybe_results = f(a, b);
+        match self.get_two_ints(w) {
+            Some((a, b)) => { maybe_results = f(a, b); },
+            None => return,
         }
 
         match maybe_results {
