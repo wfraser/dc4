@@ -100,6 +100,10 @@ fn test_arithmetic() {
     assert_eq!(dc4_run("5 50 /f"), "0\n");
     assert_eq!(dc4_run("53 5 %f"), "3\n");
     assert_eq!(dc4_run("53 5 ~f"), "3\n10\n");
+    assert_eq!(dc4_run("2 10 ^f"), "1024\n");
+    assert_eq!(dc4_run("_2 10 ^f"), "1024\n");
+    assert_eq!(dc4_run("2 0 ^f"), "1\n");
+    assert_eq!(dc4_run("2 _10 ^f"), "0\n");
 }
 
 #[test]

@@ -11,8 +11,9 @@ use std::io::Write;
 use std::fmt;
 use std::fmt::Arguments;
 use std::mem;
-use num::traits::{ToPrimitive};
-use num::{BigInt, Zero, Integer};
+use num::traits::{ToPrimitive, Zero, One, Signed};
+use num::{BigInt, Integer};
+use num::iter::range;
 
 enum DCValue {
     Str(String),
@@ -217,7 +218,7 @@ impl DC4 {
 
         if (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') {
             if self.input_num.is_none() {
-                self.input_num = Some(Zero::zero());
+                self.input_num = Some(BigInt::zero());
             }
 
             self.input_num = Some(
@@ -241,7 +242,7 @@ impl DC4 {
             self.negative = false;
         }
         else if self.negative {
-            self.stack.push(DCValue::Num(Zero::zero()));
+            self.stack.push(DCValue::Num(BigInt::zero()));
             self.negative = false;
         }
 
@@ -355,6 +356,24 @@ impl DC4 {
                     let div_rem = a.div_rem(b);
                     Ok(vec![ DCValue::Num(div_rem.0), DCValue::Num(div_rem.1) ])
                 }
+            }),
+
+            // exponentiate
+            '^' => self.binary_operator(w, |base, exponent| {
+                let mut result: BigInt;
+                if exponent.is_zero() {
+                    result = BigInt::one();
+                }
+                else if exponent.is_negative() {
+                    result = BigInt::zero();
+                }
+                else {
+                    result = base.clone();
+                    for _ in range(BigInt::zero(), exponent - BigInt::one()) {
+                        result = result * base;
+                    }
+                }
+                Ok(Some(DCValue::Num(result)))
             }),
 
             // catch-all for unhandled characters
