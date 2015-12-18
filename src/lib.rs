@@ -341,18 +341,26 @@ impl DC4 {
                 });
             },
 
+            // remainder
+            '%' => self.binary_operator(w, |a, b| {
+                if b.is_zero() {
+                    Err(format!("divide by zero"))
+                }
+                else {
+                    Ok(Some(DCValue::Num(a % b)))
+                }
+            }),
+
             // quotient and remainder
-            '~' => {
-                self.binary_operator2(w, |a, b| {
-                    if b.is_zero() {
-                        Err(format!("divide by zero"))
-                    }
-                    else {
-                        let div_rem = a.div_rem(b);
-                        Ok(vec![ DCValue::Num(div_rem.0), DCValue::Num(div_rem.1) ])
-                    }
-                });
-            }
+            '~' => self.binary_operator2(w, |a, b| {
+                if b.is_zero() {
+                    Err(format!("divide by zero"))
+                }
+                else {
+                    let div_rem = a.div_rem(b);
+                    Ok(vec![ DCValue::Num(div_rem.0), DCValue::Num(div_rem.1) ])
+                }
+            }),
 
             // catch-all for unhandled characters
             _ => self.error(w, format_args!("{:?} (0{:o}) unimplemented", c, c as u32))
