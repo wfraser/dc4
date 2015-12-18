@@ -114,52 +114,53 @@ impl DC4 {
     }
     */
 
-    fn binary_operator<W, F>(&mut self, w: &mut W, f: F) where W: Write, F: FnOnce(BigInt, BigInt) -> Option<DCValue> {
-        let len = self.stack.len();
-        if len < 2 {
-            self.error(w, format_args!("stack empty"));
-            return;
-        }
+    fn binary_operator<W, F>(&mut self, w: &mut W, f: F)
+            where W: Write,
+            F: FnOnce(&BigInt, &BigInt) -> Result<Option<DCValue>, String> {
 
+        let result: Result<Option<DCValue>, String>;
+
+        // scope to contain the immutable borrows of self.
         {
-            let slice = &self.stack[len - 2 .. len];
-            match slice[0] {
-                DCValue::Num(_) => (),
+            let a: &BigInt;
+            let b: &BigInt;
+
+            let len = self.stack.len();
+            if len < 2 {
+                self.error(w, format_args!("stack empty"));
+                return;
+            }
+
+            match self.stack[len - 2] {
+                DCValue::Num(ref n) => { a = &n; },
                 _ => {
                     self.error(w, format_args!("non-numeric value"));
                     return;
                 }
             }
-            match slice[1] {
-                DCValue::Num(_) => (),
+            match self.stack[len - 1] {
+                DCValue::Num(ref n) => { b = &n; },
                 _ => {
                     self.error(w, format_args!("non-numeric value"));
                     return;
                 }
             }
+
+            result = f(a, b);
         }
 
-        // once slice patterns are stable:
-        /*
-        match [self.stack.pop(), self.stack.pop()] {
-            [Some(DCValue::Num(b)), Some(DCValue::Num(a))] =>
-                match f(a, b) {
-                    Some(value) => self.stack.push(value),
-                    _ => ()
-                },
-            _ => unreachable!()
-        }
-        */
-
-        match self.stack.pop() {
-            Some(DCValue::Num(b)) => match self.stack.pop() {
-                Some(DCValue::Num(a)) => match f(a, b) {
-                    Some(value) => self.stack.push(value),
-                    _ => ()
-                },
-                _ => unreachable!()
+        match result {
+            Ok(r) => {
+                self.stack.pop();
+                self.stack.pop();
+                match r {
+                    Some(value) => { self.stack.push(value); },
+                    _ => {},
+                }
             },
-            _ => unreachable!()
+            Err(message) => {
+                self.error(w, format_args!("{}", message));
+            }
         }
     }
 
@@ -298,10 +299,20 @@ impl DC4 {
             'O' => self.stack.push(DCValue::Num(BigInt::from_u32(self.oradix).unwrap())),
             'K' => self.stack.push(DCValue::Num(BigInt::from_u32(self.scale).unwrap())),
 
-            '+' => self.binary_operator(w, |a, b| Some(DCValue::Num(a + b))),
-            '-' => self.binary_operator(w, |a, b| Some(DCValue::Num(a - b))),
-            '*' => self.binary_operator(w, |a, b| Some(DCValue::Num(a * b))),
-            '/' => self.binary_operator(w, |a, b| Some(DCValue::Num(a / b))),
+            '+' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a + b)))),
+            '-' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a - b)))),
+            '*' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a * b)))),
+            '/' => {
+                self.binary_operator(w, |a, b| {
+                    println!("a = {:?}, b = {:?}", a, b);
+                    if b.is_zero() {
+                        Err(format!("divide by zero"))
+                    }
+                    else {
+                        Ok(Some(DCValue::Num(a / b)))
+                    }
+                });
+            },
 
             // catch-all for unhandled characters
             _ => self.error(w, format_args!("{:?} (0{:o}) unimplemented", c, c as u32))
