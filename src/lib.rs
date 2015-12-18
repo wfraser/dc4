@@ -11,7 +11,7 @@ use std::io::Write;
 use std::fmt;
 use std::fmt::Arguments;
 use std::mem;
-use num::traits::{FromPrimitive, ToPrimitive};
+use num::traits::{ToPrimitive};
 use num::{BigInt, Zero, Integer};
 
 enum DCValue {
@@ -58,11 +58,6 @@ fn loop_over_stream<S, F>(s: &mut S, mut f: F) -> DCResult
 }
 
 impl DC4 {
-    pub fn shaddap(self) {
-        // Silence warnings about things that intentionally aren't used yet.
-        (self.scale);
-    }
-
     pub fn new(program_name: String) -> DC4 {
         DC4 {
             program_name: program_name,
@@ -227,8 +222,8 @@ impl DC4 {
 
             self.input_num = Some(
                 self.input_num.as_ref().unwrap()
-                * BigInt::from_u32(self.iradix).unwrap()
-                + BigInt::from_u32(c.to_digit(16).unwrap()).unwrap()
+                * BigInt::from(self.iradix)
+                + BigInt::from(c.to_digit(16).unwrap())
                 );
 
             //println!("digit: {:?}", self.input_num.as_ref().unwrap());
@@ -240,7 +235,7 @@ impl DC4 {
             //println!("pushing: {:?}", self.input_num.as_ref().unwrap());
             let mut n = self.input_num.take().unwrap();
             if self.negative {
-                n = n * BigInt::from_i32(-1).unwrap();
+                n = n * BigInt::from(-1);
             }
             self.stack.push(DCValue::Num(n));
             self.negative = false;
@@ -323,9 +318,9 @@ impl DC4 {
                 None => self.error(w, format_args!("stack empty")),
             },
 
-            'I' => self.stack.push(DCValue::Num(BigInt::from_u32(self.iradix).unwrap())),
-            'O' => self.stack.push(DCValue::Num(BigInt::from_u32(self.oradix).unwrap())),
-            'K' => self.stack.push(DCValue::Num(BigInt::from_u32(self.scale).unwrap())),
+            'I' => self.stack.push(DCValue::Num(BigInt::from(self.iradix))),
+            'O' => self.stack.push(DCValue::Num(BigInt::from(self.oradix))),
+            'K' => self.stack.push(DCValue::Num(BigInt::from(self.scale))),
 
             '+' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a + b)))),
             '-' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a - b)))),

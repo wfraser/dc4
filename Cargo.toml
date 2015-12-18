@@ -4,7 +4,7 @@ version = "0.0.1"
 authors = ["William R. Fraser <wfraser@codewise.org>"]
 
 [dependencies]
-num = "0.1.28"
+num = "0.1.29"
 
 [[bin]]
 name = "dc4"
