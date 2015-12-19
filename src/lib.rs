@@ -301,30 +301,21 @@ impl DC4 {
         }
 
         // operations that need one more character to be read:
-        let return_early: Option<DCResult> = match prev {
-            's' => {
-                match self.pop_stack(w) {
-                    Some(value) => self.registers[c as usize].set(value),
-                    None => (),
-                }
-                Some(DCResult::Continue)
+        let mut return_early: Option<DCResult> = Some(DCResult::Continue);
+        match prev {
+            's' => match self.pop_stack(w) {
+                Some(value) => self.registers[c as usize].set(value),
+                None => (),
             },
 
-            'l' => {
-                let index = c as usize;
-                match self.registers[index].value() {
-                    Some(value) => self.stack.push(value.clone()),
-                    None => self.error(w, format_args!("register '{}' (0{:o}) is empty", c, index)),
-                }
-                Some(DCResult::Continue)
+            'l' => match self.registers[c as usize].value() {
+                Some(value) => self.stack.push(value.clone()),
+                None => self.error(w, format_args!("register '{}' (0{:o}) is empty", c, c as usize)),
             },
 
-            'S'|'L' => {
-                self.error(w, format_args!("'S' and 'L' are not implemented yet."));
-                Some(DCResult::Continue)
-            }
+            'S'|'L' => self.error(w, format_args!("'S' and 'L' are not implemented yet.")),
 
-            _ => { None }
+            _ => { return_early = None; }
         };
         match return_early {
             Some(result) => return result,
