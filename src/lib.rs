@@ -8,21 +8,86 @@ extern crate num;
 
 use std::io::Read;
 use std::io::Write;
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Arguments;
 use std::mem;
+use std::rc::Rc;
 use num::traits::{ToPrimitive, Zero, One, Signed};
 use num::{BigInt, Integer};
 use num::iter::range;
 
+#[derive(Clone)]
 enum DCValue {
     Str(String),
     Num(BigInt)
 }
 
+struct DCRegister {
+    main_value: DCValue,
+    map: HashMap<BigInt, Rc<DCValue>>,
+}
+
+impl DCRegister {
+    pub fn new(value: DCValue) -> DCRegister{
+        DCRegister {
+            main_value: value,
+            map: HashMap::new(),
+        }
+    }
+
+    pub fn map_lookup(&self, key: &BigInt) -> Option<&Rc<DCValue>> {
+        self.map.get(key)
+    }
+
+    pub fn map_insert(&mut self, key: BigInt, value: DCValue) {
+        self.map.insert(key, Rc::new(value));
+    }
+}
+
+struct DCRegisterStack {
+    stack: Vec<DCRegister>,
+}
+
+impl DCRegisterStack {
+    pub fn new() -> DCRegisterStack {
+        DCRegisterStack {
+            stack: Vec::new()
+        }
+    }
+
+    pub fn value(&self) -> Option<&DCValue> {
+        match self.stack.last() {
+            Some(reg) => Some(&reg.main_value),
+            None      => None,
+        }
+    }
+
+    pub fn set(&mut self, value: DCValue) {
+        if !self.stack.is_empty() {
+            self.stack.pop();
+        }
+        self.stack.push(DCRegister::new(value));
+    }
+
+    pub fn pop(&mut self) -> Option<DCValue> {
+        if self.stack.is_empty() {
+            None
+        }
+        else {
+            Some(self.stack.pop().unwrap().main_value)
+        }
+    }
+
+    pub fn push(&mut self, value: DCValue) {
+        self.stack.push(DCRegister::new(value))
+    }
+}
+
 pub struct DC4 {
     program_name: String,
     stack: Vec<DCValue>,
+    registers: Vec<DCRegisterStack>,
     scale: u32,
     iradix: u32,
     oradix: u32,
@@ -39,15 +104,17 @@ pub enum DCResult {
 }
 
 fn loop_over_stream<S, F>(s: &mut S, mut f: F) -> DCResult
-        where S: Read, F: FnMut(char) -> DCResult {
+        where S: Read, F: FnMut(char, char) -> DCResult {
     // TODO: change this to s.chars() once Read::chars is stable
+    let mut prev = '\0';
     for maybe_char in s.bytes() {
         match maybe_char {
             Ok(c)       => {
-                match f(c as char) {
+                match f(c as char, prev) {
                     DCResult::Continue => (), // next loop iteration
                     other              => return other
                 }
+                prev = c as char;
             },
             Err(err)    => {
                 println!("Error reading from input: {}", err);
@@ -60,9 +127,10 @@ fn loop_over_stream<S, F>(s: &mut S, mut f: F) -> DCResult
 
 impl DC4 {
     pub fn new(program_name: String) -> DC4 {
-        DC4 {
+        let mut value = DC4 {
             program_name: program_name,
             stack: Vec::new(),
+            registers: Vec::with_capacity(256),
             scale: 0,
             iradix: 10,
             oradix: 10,
@@ -70,7 +138,11 @@ impl DC4 {
             input_str: String::new(),
             bracket_level: 0,
             negative: false,
+        };
+        for _ in range(0, 256) {
+            value.registers.push(DCRegisterStack::new());
         }
+        value
     }
 
     fn print_elem<W>(&self, elem: &DCValue, w: &mut W) where W: Write {
@@ -188,13 +260,25 @@ impl DC4 {
         }
     }
 
+    fn pop_stack<W>(&mut self, w: &mut W) -> Option<DCValue> where W: Write {
+        let value: DCValue;
+        match self.stack.pop() {
+            Some(v) => { value = v; },
+            None    => {
+                self.error(w, format_args!("stack empty"));
+                return None;
+            }
+        }
+        Some(value)
+    }
+
     pub fn program<R, W>(&mut self, r: &mut R, w: &mut W) -> DCResult
             where R: Read,
             W: Write {
-        loop_over_stream(r, |c| self.loop_iteration(c, w) )
+        loop_over_stream(r, |c, prev| self.loop_iteration(c, prev, w) )
     }
 
-    fn loop_iteration<W>(&mut self, c: char, w: &mut W) -> DCResult
+    fn loop_iteration<W>(&mut self, c: char, prev: char, w: &mut W) -> DCResult
             where W: Write {
 
         if self.bracket_level > 0 {
@@ -214,6 +298,37 @@ impl DC4 {
                 self.input_str.push(c);
             }
             return DCResult::Continue;
+        }
+
+        // operations that need one more character to be read:
+        let return_early: Option<DCResult> = match prev {
+            's' => {
+                match self.pop_stack(w) {
+                    Some(value) => self.registers[c as usize].set(value),
+                    None => (),
+                }
+                Some(DCResult::Continue)
+            },
+
+            'l' => {
+                let index = c as usize;
+                match self.registers[index].value() {
+                    Some(value) => self.stack.push(value.clone()),
+                    None => self.error(w, format_args!("register '{}' (0{:o}) is empty", c, index)),
+                }
+                Some(DCResult::Continue)
+            },
+
+            'S'|'L' => {
+                self.error(w, format_args!("'S' and 'L' are not implemented yet."));
+                Some(DCResult::Continue)
+            }
+
+            _ => { None }
+        };
+        match return_early {
+            Some(result) => return result,
+            None         => {}
         }
 
         if (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') {
@@ -248,6 +363,8 @@ impl DC4 {
 
         match c {
             ' '|'\t'|'\r'|'\n' => (), // ignore whitespace
+
+            's'|'l'|'S'|'L' => (), // handled above
 
             '_' => self.negative = true,
 
