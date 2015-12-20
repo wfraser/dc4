@@ -121,6 +121,7 @@ fn test_registers() {
     assert_eq!(dc4_run("42 99 sx f lx f"), "42\n99\n42\n");
     assert_eq!(dc4_run("lxf"), "dc4 cargo test: register 'x' (0170) is empty\n");
     assert_eq!(dc4_run("sxf"), "dc4 cargo test: stack empty\n");
+    assert_eq!(dc4_run("42 ss f"), ""); // checks for a bug in handling 2-char commands
 }
 
 #[test]

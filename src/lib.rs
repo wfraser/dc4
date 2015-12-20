@@ -98,6 +98,7 @@ pub struct DC4 {
     input_str: String,
     bracket_level: u32,
     negative: bool,
+    prev_char: char,
 }
 
 pub enum DCResult {
@@ -107,17 +108,15 @@ pub enum DCResult {
 }
 
 fn loop_over_stream<S, F>(s: &mut S, mut f: F) -> DCResult
-        where S: Read, F: FnMut(char, char) -> DCResult {
+        where S: Read, F: FnMut(char) -> DCResult {
     // TODO: change this to s.chars() once Read::chars is stable
-    let mut prev = '\0';
     for maybe_char in s.bytes() {
         match maybe_char {
             Ok(c)       => {
-                match f(c as char, prev) {
+                match f(c as char) {
                     DCResult::Continue => (), // next loop iteration
                     other              => return other
                 }
-                prev = c as char;
             },
             Err(err)    => {
                 println!("Error reading from input: {}", err);
@@ -141,6 +140,7 @@ impl DC4 {
             input_str: String::new(),
             bracket_level: 0,
             negative: false,
+            prev_char: '\0',
         };
         for _ in range(0, 256) {
             value.registers.push(DCRegisterStack::new());
@@ -299,10 +299,10 @@ impl DC4 {
     pub fn program<R, W>(&mut self, r: &mut R, w: &mut W) -> DCResult
             where R: Read,
             W: Write {
-        loop_over_stream(r, |c, prev| self.loop_iteration(c, prev, w) )
+        loop_over_stream(r, |c| self.loop_iteration(c, w) )
     }
 
-    fn loop_iteration<W>(&mut self, c: char, prev: char, w: &mut W) -> DCResult
+    fn loop_iteration<W>(&mut self, c: char, w: &mut W) -> DCResult
             where W: Write {
 
         if self.bracket_level > 0 {
@@ -326,7 +326,7 @@ impl DC4 {
 
         // operations that need one more character to be read:
         let mut return_early: Option<DCResult> = Some(DCResult::Continue);
-        match prev {
+        match self.prev_char {
             's' => self.pop_stack(w).then(|value| {
                 self.registers[c as usize].set(value);
             }),
@@ -348,8 +348,11 @@ impl DC4 {
             _ => { return_early = None; }
         };
         match return_early {
-            Some(result) => return result,
-            None         => {}
+            Some(result) => {
+                self.prev_char = '\0';
+                return result;
+            },
+            None => {}
         }
 
         if (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') {
@@ -385,7 +388,7 @@ impl DC4 {
         match c {
             ' '|'\t'|'\r'|'\n' => (), // ignore whitespace
 
-            's'|'l'|'S'|'L' => (), // handled above
+            's'|'l'|'S'|'L' => { self.prev_char = c; }, // then handled above next time around.
 
             '_' => self.negative = true,
 
@@ -477,9 +480,8 @@ impl DC4 {
 
             // pop top and execute as macro
             'x' => match self.pop_string(w).and_then(|string| {
-                    let mut prev_char = '\0';
                     for c in string.chars() {
-                        let return_early: Option<DCResult> = match self.loop_iteration(c, prev_char, w) {
+                        let return_early: Option<DCResult> = match self.loop_iteration(c, w) {
                             DCResult::QuitLevels(n) => Some(DCResult::QuitLevels(n - 1)),
                             DCResult::Terminate => Some(DCResult::Terminate),
                             DCResult::Continue => None,
@@ -487,7 +489,6 @@ impl DC4 {
                         if return_early.is_some() {
                             return return_early;
                         }
-                        prev_char = c;
                     }
                     None
                 }) {
