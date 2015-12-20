@@ -89,6 +89,7 @@ fn test_invalid_radix() {
 #[test]
 fn test_arithmetic() {
     assert_eq!(dc4_run("999 1 +f"), "1000\n");
+    assert_eq!(dc4_run("1 2 3 ++f"), "6\n");
     assert_eq!(dc4_run("999 1 -f"), "998\n");
     assert_eq!(dc4_run("10 20 -f"), "-10\n");
     assert_eq!(dc4_run("_15 32 +f"), "17\n");
@@ -127,4 +128,18 @@ fn test_register_stack() {
     assert_eq!(dc4_run("1 2 3 f SxSx f LxLx f"), "3\n2\n1\n1\n3\n2\n1\n");
     assert_eq!(dc4_run("Lxf"), "dc4 cargo test: stack register 'x' (0170) is empty\n");
     assert_eq!(dc4_run("Sxf"), "dc4 cargo test: stack empty\n");
+}
+
+#[test]
+fn test_stackmanip() {
+    assert_eq!(dc4_run("1 2 3 frf"), "3\n2\n1\n2\n3\n1\n");
+    assert_eq!(dc4_run("1 2 3 fdf"), "3\n2\n1\n3\n3\n2\n1\n");
+    assert_eq!(dc4_run("1 2 3 f c 4 f"), "3\n2\n1\n4\n");
+}
+
+#[test]
+fn test_macro() {
+    assert_eq!(dc4_run("4 5 [d+p] x f"), "10\n10\n4\n");
+    assert_eq!(dc4_run("25 x f"), "25\n");
+    //assert_eq!(dc4_run("[ok]ss[lsp]st9_9<t"), "ok\n");
 }
