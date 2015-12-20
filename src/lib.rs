@@ -275,6 +275,27 @@ impl DC4 {
         Some(value)
     }
 
+    fn pop_string<W>(&mut self, w: &mut W) -> Option<String> where W: Write {
+        let correct_type = match self.stack.last() {
+            Some(&DCValue::Str(_)) => true,
+            None => {
+                self.error(w, format_args!("stack empty"));
+                false
+            }
+            _ => false
+        };
+
+        if correct_type {
+            match self.stack.pop() {
+                Some(DCValue::Str(string)) => Some(string),
+                _ => unreachable!()
+            }
+        }
+        else {
+            None
+        }
+    }
+
     pub fn program<R, W>(&mut self, r: &mut R, w: &mut W) -> DCResult
             where R: Read,
             W: Write {
@@ -388,6 +409,20 @@ impl DC4 {
                 None => self.error(w, format_args!("stack empty")),
             },
 
+            'c' => self.stack.clear(),
+            'd' => self.stack.last().and_then(|value| Some(value.clone())).then(|value| {
+                self.stack.push(value);
+            }),
+            'r' => if self.stack.len() >= 2 {
+                let a = self.stack.pop().unwrap();
+                let b = self.stack.pop().unwrap();
+                self.stack.push(a);
+                self.stack.push(b);
+            }
+            else {
+                self.error(w, format_args!("stack empty"));
+            },
+
             'i' => match self.stack.pop() {
                 Some(DCValue::Num(ref n)) =>
                     match n.to_u32() {
@@ -439,6 +474,27 @@ impl DC4 {
             'I' => self.stack.push(DCValue::Num(BigInt::from(self.iradix))),
             'O' => self.stack.push(DCValue::Num(BigInt::from(self.oradix))),
             'K' => self.stack.push(DCValue::Num(BigInt::from(self.scale))),
+
+            // pop top and execute as macro
+            'x' => match self.pop_string(w).and_then(|string| {
+                    let mut prev_char = '\0';
+                    for c in string.chars() {
+                        let return_early: Option<DCResult> = match self.loop_iteration(c, prev_char, w) {
+                            DCResult::QuitLevels(n) => Some(DCResult::QuitLevels(n - 1)),
+                            DCResult::Terminate => Some(DCResult::Terminate),
+                            DCResult::Continue => None,
+                        };
+                        if return_early.is_some() {
+                            return return_early;
+                        }
+                        prev_char = c;
+                    }
+                    None
+                }) {
+                Some(DCResult::Continue) => (),
+                Some(result) => return result,
+                None => ()
+            },
 
             '+' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a + b)))),
             '-' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a - b)))),
@@ -492,6 +548,10 @@ impl DC4 {
                 }
                 Ok(Some(DCValue::Num(result)))
             }),
+
+            //TODO:
+            // '|': modular exponentiation
+            // 'v': square root
 
             // catch-all for unhandled characters
             _ => self.error(w, format_args!("{:?} (0{:o}) unimplemented", c, c as u32))
