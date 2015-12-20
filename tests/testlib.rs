@@ -46,11 +46,15 @@ fn test_weird_overflow() {
 #[test]
 fn test_p() {
     assert_eq!(dc4_run("1 2 3 p"), "3\n");
+    assert_eq!(dc4_run("1 2 [hello] p"), "hello\n");
+    assert_eq!(dc4_run("p"), "dc4 cargo test: stack empty\n");
 }
 
 #[test]
 fn test_n() {
     assert_eq!(dc4_run("1 2 3 n"), "3");
+    assert_eq!(dc4_run("1 2 [hello] n"), "hello");
+    assert_eq!(dc4_run("n"), "dc4 cargo test: stack empty\n");
 }
 
 #[test]
