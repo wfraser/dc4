@@ -20,7 +20,7 @@ use num::iter::range;
 mod option_then;
 use option_then::OptionThen;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum DCValue {
     Str(String),
     Num(BigInt)
@@ -98,9 +98,11 @@ pub struct DC4 {
     input_str: String,
     bracket_level: u32,
     negative: bool,
+    invert: bool,
     prev_char: char,
 }
 
+#[derive(Debug)]
 pub enum DCResult {
     Terminate,
     QuitLevels(i32),
@@ -139,7 +141,8 @@ impl DC4 {
             input_num: Option::None,
             input_str: String::new(),
             bracket_level: 0,
-            negative: false,
+            negative: false,    // for number entry
+            invert: false,      // for conditional macro execution
             prev_char: '\0',
         };
         for _ in range(0, 256) {
@@ -212,9 +215,9 @@ impl DC4 {
         Some((a, b))
     }
 
-    fn binary_operator<W, F>(&mut self, w: &mut W, f: F)
+    fn binary_operator<W, F>(&mut self, w: &mut W, mut f: F)
             where W: Write,
-            F: Fn(&BigInt, &BigInt) -> Result<Option<DCValue>, String> {
+            F: FnMut(&BigInt, &BigInt) -> Result<Option<DCValue>, String> {
 
         let result: Result<Option<DCValue>, String>;
 
@@ -238,9 +241,9 @@ impl DC4 {
         }
     }
 
-    fn binary_operator2<W, F>(&mut self, w: &mut W, f: F)
+    fn binary_operator2<W, F>(&mut self, w: &mut W, mut f: F)
             where W: Write,
-            F: Fn(&BigInt, &BigInt) -> Result<Vec<DCValue>, String> {
+            F: FnMut(&BigInt, &BigInt) -> Result<Vec<DCValue>, String> {
 
         let maybe_results: Result<Vec<DCValue>, String>;
 
@@ -261,6 +264,22 @@ impl DC4 {
                 self.error(w, format_args!("{}", msg));
             }
         }
+    }
+
+    fn binary_predicate<W, F>(&mut self, w: &mut W, f: F) -> bool
+            where W: Write,
+            F: Fn(&BigInt, &BigInt) -> Result<bool, String> {
+
+        let mut result = false;
+
+        self.binary_operator(w, |a, b| {
+            match f(a, b) {
+                Ok(pred_result) => {result = pred_result; Ok(None)},
+                Err(msg) => Err(msg)
+            }
+        });
+
+        result
     }
 
     fn pop_stack<W>(&mut self, w: &mut W) -> Option<DCValue> where W: Write {
@@ -296,6 +315,36 @@ impl DC4 {
         }
     }
 
+    pub fn run_macro_reg<W>(&mut self, w: &mut W, c: char) -> DCResult where W: Write {
+        let macro_string = match self.registers[c as usize].value() {
+            Some(&DCValue::Str(ref string)) => Some(string.clone()),
+            None => {
+                self.error(w, format_args!("register '{}' (0{:o}) is empty", c, c as usize));
+                None
+            }
+            _ => None
+        };
+        match macro_string {
+            Some(string) => self.run_macro_str(w, string),
+            _ => DCResult::Continue
+        }
+    }
+
+    pub fn run_macro_str<W>(&mut self, w: &mut W, macro_text: String) -> DCResult where W: Write {
+        self.prev_char = '\0';
+        for c in macro_text.chars() {
+            let return_early: Option<DCResult> = match self.loop_iteration(c, w) {
+                DCResult::QuitLevels(n) => Some(DCResult::QuitLevels(n - 1)),
+                DCResult::Terminate => Some(DCResult::Terminate),
+                DCResult::Continue => None,
+            };
+            if return_early.is_some() {
+                return return_early.unwrap();
+            }
+        }
+        DCResult::Continue
+    }
+
     pub fn program<R, W>(&mut self, r: &mut R, w: &mut W) -> DCResult
             where R: Read,
             W: Write {
@@ -326,6 +375,7 @@ impl DC4 {
 
         // operations that need one more character to be read:
         let mut return_early: Option<DCResult> = Some(DCResult::Continue);
+        let invert = self.invert;
         match self.prev_char {
             's' => self.pop_stack(w).then(|value| {
                 self.registers[c as usize].set(value);
@@ -345,14 +395,31 @@ impl DC4 {
                 None => self.error(w, format_args!("stack register '{}' (0{:o}) is empty", c, c as usize)),
             },
 
+            '<' => if self.binary_predicate(w, move |a, b| Ok(invert != (b < a))) {
+                return_early = Some(self.run_macro_reg(w, c));
+            },
+
+            '>' => if self.binary_predicate(w, move |a, b| Ok(invert != (b > a))) {
+                return_early = Some(self.run_macro_reg(w, c));
+            },
+
+            '=' => if self.binary_predicate(w, move |a, b| Ok(invert != (b == a))) {
+                return_early = Some(self.run_macro_reg(w, c));
+            },
+
             _ => { return_early = None; }
         };
+
+        if self.prev_char != '!' {
+            self.invert = false;
+        }
+
         match return_early {
-            Some(result) => {
+            None => {},
+            Some(other) => {
                 self.prev_char = '\0';
-                return result;
+                return other;
             },
-            None => {}
         }
 
         if (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') {
@@ -388,7 +455,9 @@ impl DC4 {
         match c {
             ' '|'\t'|'\r'|'\n' => (), // ignore whitespace
 
-            's'|'l'|'S'|'L' => { self.prev_char = c; }, // then handled above next time around.
+            '!' => { self.invert = true; },
+
+            's'|'l'|'S'|'L'|'>'|'<'|'=' => {}, // then handled above next time around.
 
             '_' => self.negative = true,
 
@@ -479,22 +548,10 @@ impl DC4 {
             'K' => self.stack.push(DCValue::Num(BigInt::from(self.scale))),
 
             // pop top and execute as macro
-            'x' => match self.pop_string(w).and_then(|string| {
-                    for c in string.chars() {
-                        let return_early: Option<DCResult> = match self.loop_iteration(c, w) {
-                            DCResult::QuitLevels(n) => Some(DCResult::QuitLevels(n - 1)),
-                            DCResult::Terminate => Some(DCResult::Terminate),
-                            DCResult::Continue => None,
-                        };
-                        if return_early.is_some() {
-                            return return_early;
-                        }
-                    }
-                    None
-                }) {
+            'x' => match self.pop_string(w).and_then(|string| Some(self.run_macro_str(w, string))) {
                 Some(DCResult::Continue) => (),
-                Some(result) => return result,
-                None => ()
+                None                     => (),
+                Some(other)              => return other,
             },
 
             '+' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a + b)))),
@@ -557,6 +614,8 @@ impl DC4 {
             // catch-all for unhandled characters
             _ => self.error(w, format_args!("{:?} (0{:o}) unimplemented", c, c as u32))
         }
+        self.prev_char = c;
+
         DCResult::Continue
     }
 

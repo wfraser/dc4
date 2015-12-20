@@ -65,6 +65,7 @@ fn test_string_basic() {
 #[test]
 fn test_string_nesting() {
     assert_eq!(dc4_run("[Hello[World]]f"), "Hello[World]\n");
+    assert_eq!(dc4_run("[[Hello]World]f"), "[Hello]World\n");
 }
 
 #[test]
@@ -147,4 +148,24 @@ fn test_macro() {
     assert_eq!(dc4_run("4 5 [d+p] x f"), "10\n10\n4\n");
     assert_eq!(dc4_run("25 x f"), "25\n");
     //assert_eq!(dc4_run("[ok]ss[lsp]st9_9<t"), "ok\n");
+}
+
+#[test]
+fn test_conditional_macro() {
+    assert_eq!(dc4_run("1 1 [[hello]n]sx =x f"), "hello");
+    assert_eq!(dc4_run("1 2 [[hello]n]sx =x f"), "");
+    assert_eq!(dc4_run("1 2 [[hello]n]sx !=x f"), "hello");
+
+    assert_eq!(dc4_run("1 2 [[hello]n]sx >x"), "hello");
+    assert_eq!(dc4_run("2 1 [[hello]n]sx >x"), "");
+    assert_eq!(dc4_run("2 1 [[hello]n]sx !>x"), "hello");
+
+    assert_eq!(dc4_run("2 1 [[hello]n]sx <x"), "hello");
+    assert_eq!(dc4_run("1 2 [[hello]n]sx <x"), "");
+    assert_eq!(dc4_run("1 2 [[hello]n]sx !<x"), "hello");
+
+    assert_eq!(dc4_run("1 1 =x 2 f"), "dc4 cargo test: register 'x' (0170) is empty\n2\n");
+
+    assert_eq!(dc4_run("1 1 2 3 [[hello]n]sx !=x=x"), "hellohello");
+    assert_eq!(dc4_run("1 2 [[hello]n]sx ! =x"), "");
 }
