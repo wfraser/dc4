@@ -17,6 +17,9 @@ use num::traits::{ToPrimitive, Zero, One, Signed};
 use num::{BigInt, Integer};
 use num::iter::range;
 
+mod option_then;
+use option_then::OptionThen;
+
 #[derive(Clone)]
 enum DCValue {
     Str(String),
@@ -303,17 +306,23 @@ impl DC4 {
         // operations that need one more character to be read:
         let mut return_early: Option<DCResult> = Some(DCResult::Continue);
         match prev {
-            's' => match self.pop_stack(w) {
-                Some(value) => self.registers[c as usize].set(value),
-                None => (),
-            },
+            's' => self.pop_stack(w).then(|value| {
+                self.registers[c as usize].set(value);
+            }),
 
             'l' => match self.registers[c as usize].value() {
                 Some(value) => self.stack.push(value.clone()),
                 None => self.error(w, format_args!("register '{}' (0{:o}) is empty", c, c as usize)),
             },
 
-            'S'|'L' => self.error(w, format_args!("'S' and 'L' are not implemented yet.")),
+            'S' => self.pop_stack(w).then(|value| {
+                self.registers[c as usize].push(value);
+            }),
+
+            'L' => match self.registers[c as usize].pop() {
+                Some(value) => self.stack.push(value),
+                None => self.error(w, format_args!("stack register '{}' (0{:o}) is empty", c, c as usize)),
+            },
 
             _ => { return_early = None; }
         };

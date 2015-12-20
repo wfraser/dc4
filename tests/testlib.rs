@@ -116,9 +116,15 @@ fn test_invalid_arithmetic() {
 }
 
 #[test]
-fn test_stack() {
-    assert_eq!(dc4_run("42 99 sx f"), "42\n");
+fn test_registers() {
     assert_eq!(dc4_run("42 99 sx f lx f"), "42\n99\n42\n");
     assert_eq!(dc4_run("lxf"), "dc4 cargo test: register 'x' (0170) is empty\n");
     assert_eq!(dc4_run("sxf"), "dc4 cargo test: stack empty\n");
+}
+
+#[test]
+fn test_register_stack() {
+    assert_eq!(dc4_run("1 2 3 f SxSx f LxLx f"), "3\n2\n1\n1\n3\n2\n1\n");
+    assert_eq!(dc4_run("Lxf"), "dc4 cargo test: stack register 'x' (0170) is empty\n");
+    assert_eq!(dc4_run("Sxf"), "dc4 cargo test: stack empty\n");
 }
