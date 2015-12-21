@@ -27,12 +27,12 @@ enum DCValue {
 }
 
 struct DCRegister {
-    main_value: DCValue,
+    main_value: Option<DCValue>,
     map: HashMap<BigInt, Rc<DCValue>>,
 }
 
 impl DCRegister {
-    pub fn new(value: DCValue) -> DCRegister{
+    pub fn new(value: Option<DCValue>) -> DCRegister {
         DCRegister {
             main_value: value,
             map: HashMap::new(),
@@ -61,8 +61,28 @@ impl DCRegisterStack {
 
     pub fn value(&self) -> Option<&DCValue> {
         match self.stack.last() {
-            Some(reg) => Some(&reg.main_value),
+            Some(reg) => match reg.main_value {
+                Some(ref value) => Some(value),
+                None        => None,
+            },
             None      => None,
+        }
+    }
+
+    pub fn array_store(&mut self, key: BigInt, value: DCValue) {
+        if self.stack.is_empty() {
+            self.stack.push(DCRegister::new(None));
+        }
+        self.stack.last_mut().unwrap().map_insert(key, value);
+    }
+
+    pub fn array_load(&self, key: &BigInt) -> Rc<DCValue> {
+        match self.stack.last() {
+            Some(reg) => match reg.map_lookup(key) {
+                Some(value) => value.clone(),
+                None        => Rc::new(DCValue::Num(BigInt::zero()))
+            },
+            None      => Rc::new(DCValue::Num(BigInt::zero()))
         }
     }
 
@@ -70,7 +90,7 @@ impl DCRegisterStack {
         if !self.stack.is_empty() {
             self.stack.pop();
         }
-        self.stack.push(DCRegister::new(value));
+        self.stack.push(DCRegister::new(Some(value)));
     }
 
     pub fn pop(&mut self) -> Option<DCValue> {
@@ -78,12 +98,12 @@ impl DCRegisterStack {
             None
         }
         else {
-            Some(self.stack.pop().unwrap().main_value)
+            self.stack.pop().unwrap().main_value
         }
     }
 
     pub fn push(&mut self, value: DCValue) {
-        self.stack.push(DCRegister::new(value))
+        self.stack.push(DCRegister::new(Some(value)))
     }
 }
 
@@ -164,29 +184,6 @@ impl DC4 {
             write!(w, "\n").unwrap();
         }
     }
-
-    /*
-    fn pop_num<W>(&mut self, w: &mut W) -> Option<BigInt>
-            where W: Write {
-        match self.stack.last() {
-            Some(&DCValue::Num(_)) => {
-                // type match, pop and return the moved value
-                match self.stack.pop() {
-                    Some(DCValue::Num(n)) => Some(n),
-                    _ => panic!("impossible!"),
-                }
-            }
-            None => {
-                self.error(w, format_args!("stack empty"));
-                None
-            },
-            _ => {
-                self.error(w, format_args!("non-numeric value"));
-                None
-            },
-        }
-    }
-    */
 
     fn get_two_ints<W>(&mut self, w: &mut W) -> Option<(&BigInt, &BigInt)> where W: Write {
         let a: &BigInt;
@@ -407,6 +404,64 @@ impl DC4 {
                 return_early = Some(self.run_macro_reg(w, c));
             },
 
+            ':' => {
+                if self.stack.len() < 2 {
+                    self.error(w, format_args!("stack empty"));
+                }
+                else {
+                    // this command pops the values regardless of whether the types are correct,
+                    // unlike most other commands in dc.
+                    /*
+                    let type_match = match self.stack.last().unwrap() {
+                        &DCValue::Num(ref n) => !n.is_negative(),
+                        _                    => false
+                    };
+                    if type_match {
+                        match self.stack.pop().unwrap() {
+                            DCValue::Num(key) => {
+                                let value = self.stack.pop().unwrap();
+                                self.registers[c as usize].array_store(key, value);
+                            },
+                            _ => unreachable!()
+                        }
+                    }
+                    else {
+                        self.error(w, format_args!("array index must be a nonnegative integer"));
+                    }
+                    */
+                    let key_dcvalue = self.stack.pop().unwrap();
+                    let value = self.stack.pop().unwrap();
+
+                    let key: Option<BigInt> = match key_dcvalue {
+                        DCValue::Num(key) => {
+                            if key.is_negative() {
+                                None
+                            }
+                            else {
+                                Some(key)
+                            }
+                        },
+                        _ => None
+                    };
+                    if key.is_none() {
+                        self.error(w, format_args!("array index must be a nonnegative integer"))
+                    }
+                    else {
+                        self.registers[c as usize].array_store(key.unwrap(), value);
+                    }
+                }
+            },
+
+            // this command also pops the value regardless of whether it's the correc type.
+            ';' => match self.stack.pop() {
+                Some(DCValue::Num(ref index)) if !index.is_negative() => {
+                    let ref value = *self.registers[c as usize].array_load(&index);
+                    self.stack.push(value.clone());
+                },
+                Some(_) => self.error(w, format_args!("array index must be a nonnegative integer")),
+                None => self.error(w, format_args!("stack empty")),
+            },
+
             _ => { return_early = None; }
         };
 
@@ -457,7 +512,7 @@ impl DC4 {
 
             '!' => { self.invert = true; },
 
-            's'|'l'|'S'|'L'|'>'|'<'|'=' => {}, // then handled above next time around.
+            's'|'l'|'S'|'L'|'>'|'<'|'='|':'|';' => {}, // then handled above next time around.
 
             '_' => self.negative = true,
 

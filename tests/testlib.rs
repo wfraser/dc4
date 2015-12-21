@@ -169,3 +169,14 @@ fn test_conditional_macro() {
     assert_eq!(dc4_run("1 1 2 3 [[hello]n]sx !=x=x"), "hellohello");
     assert_eq!(dc4_run("1 2 [[hello]n]sx ! =x"), "");
 }
+
+#[test]
+fn test_array() {
+    assert_eq!(dc4_run("7 [hello] 42:x f c 42;x f"), "7\nhello\n");
+    assert_eq!(dc4_run("7 [hello] [bogus] :x f"), "dc4 cargo test: array index must be a nonnegative integer\n7\n");
+    assert_eq!(dc4_run("42 ;x f"), "0\n");
+    assert_eq!(dc4_run(";x f"), "dc4 cargo test: stack empty\n");
+    assert_eq!(dc4_run("[bogus];x f"), "dc4 cargo test: array index must be a nonnegative integer\n");
+
+    assert_eq!(dc4_run("1 0:a 0Sa 2 0:a La 0;a f"), "1\n0\n");
+}
