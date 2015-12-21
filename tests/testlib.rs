@@ -217,9 +217,9 @@ fn test_quitlevels() {
 }
 
 #[test]
+#[ignore] // because this test is so slow. be sure to run 'cargo test -- --ignored' occasionally.
 fn test_stackoverflow() {
-    // once I have tail recursion implemented, this should be bumped to 200,000 or so.
-    let iterations = "2000";
+    let iterations = "200000";
 
     let program = String::new()
         + "[pq]sq"      // 'q' macro to print and quit

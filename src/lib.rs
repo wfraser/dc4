@@ -330,13 +330,32 @@ impl DC4 {
 
     pub fn run_macro_str<W>(&mut self, w: &mut W, macro_text: String) -> DCResult where W: Write {
         self.prev_char = '\0';
-        for c in macro_text.chars() {
+
+        let mut current_text = macro_text.into_bytes();
+        let mut pos = 0;
+        let mut len = current_text.len();
+        while pos < len {
+            let c = current_text[pos] as char;
+            pos += 1;
+
             let mut result = self.loop_iteration(c, w);
 
             while let DCResult::Recursion(sub_text) = result {
-                //TODO: tail recursion optimization
+                // This loop iteration wants to call a macro.
+                // The macro to run is returned, and we handle that here.
+
+                // Tail recursion optimization:
                 // if macro text is empty, replace it with sub_text and continue
-                result = self.run_macro_str(w, sub_text);
+                if pos == len {
+                    current_text = sub_text.into_bytes();
+                    pos = 0;
+                    len = current_text.len();
+                    result = DCResult::Continue;
+                }
+                else {
+                    // otherwise we have to actually do recursion.
+                    result = self.run_macro_str(w, sub_text);
+                }
             }
 
             let return_early: Option<DCResult> = match result {
