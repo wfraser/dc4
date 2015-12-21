@@ -35,7 +35,19 @@ fn print_version() {
 }
 
 fn print_usage() {
-    println!("usage: {} [options and stuff]", progname());
+    // 79:    ###############################################################################
+    println!("usage: {} [options] [file ...]", progname());
+    println!("options:");
+    println!("  -e EXPR | --expression=EXPR     evaluate expression");
+    println!("  -f FILE | --file=FILE           evaluate contents of file");
+    println!("  -h | --help                     display this help and exit");
+    println!("  -V | --version                  output version information and exit");
+    println!("");
+    println!("Expressions from command line options are processed first, in order, followed");
+    println!("by any remaining files listed. A file name of '-' means to read from standard");
+    println!("input. An argument of '--' disables further command line option processing and");
+    println!("all subsequent arguments are interpreted as file names. If no inputs are given,");
+    println!("input will be taken from standard input.");
 }
 
 enum DCInput<'a> {
@@ -149,11 +161,9 @@ fn main() {
     for input in inputs {
         let result = match input {
             DCInput::Expression(expr) => {
-                println!("process expression {:?}", expr); //DEBUG
                 dc.program(&mut Cursor::new(expr.as_bytes()), &mut io::stdout())
             },
             DCInput::File(path) => {
-                println!("process file {:?}", path); //DEBUG
                 match File::open(path) {
                     Ok(mut file) => dc.program(&mut file, &mut io::stdout()),
                     Err(e)       => {
@@ -163,7 +173,6 @@ fn main() {
                 }
             },
             DCInput::Stdin => {
-                println!("process stdin"); //DEBUG
                 dc.program(&mut io::stdin(), &mut io::stdout())
             },
         };
