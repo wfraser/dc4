@@ -50,15 +50,17 @@ fn print_usage() {
     println!("input will be taken from standard input.");
 }
 
+#[derive(Debug, PartialEq)]
 enum DCInput<'a> {
     Expression(&'a str),
     File(&'a str),
     Stdin,
 }
 
-fn parse_arguments<'a>(args: &'a Vec<String>)
+fn parse_arguments<'a>(args: &'a Vec<&'a str>)
         -> Option<Vec<DCInput<'a>>> {
     let mut inputs: Vec<DCInput<'a>> = Vec::new();
+    let mut bare_file_args: Vec<DCInput<'a>> = Vec::new();
 
     let expression_str = "--expression=";
     let file_str = "--file=";
@@ -74,7 +76,7 @@ fn parse_arguments<'a>(args: &'a Vec<String>)
             continue;
         }
 
-        let arg = &args[i];
+        let arg = args[i];
 
         if seen_double_dash {
             inputs.push(DCInput::File(arg));
@@ -122,7 +124,7 @@ fn parse_arguments<'a>(args: &'a Vec<String>)
             seen_double_dash = true;
         }
         else if arg == "-" {
-            inputs.push(DCInput::Stdin);
+            bare_file_args.push(DCInput::Stdin);
             process_stdin = false;
         }
         else if arg.len() > file_str.len()
@@ -133,9 +135,13 @@ fn parse_arguments<'a>(args: &'a Vec<String>)
             process_stdin = false;
         }
         else if i != 0 {
-            inputs.push(DCInput::File(arg));
+            bare_file_args.push(DCInput::File(arg));
             process_stdin = false;
         }
+    }
+
+    for input in bare_file_args {
+        inputs.push(input);
     }
 
     if process_stdin {
@@ -148,10 +154,11 @@ fn parse_arguments<'a>(args: &'a Vec<String>)
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+    let args_references: Vec<&str> = args.iter().map(|owned| &owned[..]).collect();
 
     let inputs: Vec<DCInput>;
 
-    match parse_arguments(&args) {
+    match parse_arguments(&args_references) {
         Some(x) => inputs = x,
         None => return,
     }
@@ -185,4 +192,23 @@ fn main() {
             DCResult::Continue => ()
         }
     }
+}
+
+#[test]
+fn test_parseargs() {
+    let args: Vec<&str> = vec!["-e", "e1", "file1", "--expression=e2", "file2", "--file=file3", "-", "file4"];
+    let result = parse_arguments(&args).unwrap();
+
+    // first, the options:
+    assert_eq!(result[0], DCInput::Expression("e1"));
+    assert_eq!(result[1], DCInput::Expression("e2"));
+    assert_eq!(result[2], DCInput::File("file3"));
+
+    // then the non-option inputs:
+    assert_eq!(result[3], DCInput::File("file1"));
+    assert_eq!(result[4], DCInput::File("file2"));
+    assert_eq!(result[5], DCInput::Stdin);
+    assert_eq!(result[6], DCInput::File("file4"));
+
+    assert_eq!(result.len(), 7);
 }
