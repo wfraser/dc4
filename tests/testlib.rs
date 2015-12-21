@@ -218,8 +218,8 @@ fn test_quitlevels() {
 
 #[test]
 fn test_stackoverflow() {
-    // once I have tail recursion implemented, this should be bumped to 2000 or so.
-    let iterations = "200";
+    // once I have tail recursion implemented, this should be bumped to 200,000 or so.
+    let iterations = "2000";
 
     let program = String::new()
         + "[pq]sq"      // 'q' macro to print and quit

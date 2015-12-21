@@ -126,7 +126,8 @@ pub struct DC4 {
 pub enum DCResult {
     Terminate,
     QuitLevels(u32),
-    Continue
+    Continue,
+    Recursion(String),
 }
 
 fn loop_over_stream<S, F>(s: &mut S, mut f: F) -> DCResult
@@ -330,7 +331,16 @@ impl DC4 {
     pub fn run_macro_str<W>(&mut self, w: &mut W, macro_text: String) -> DCResult where W: Write {
         self.prev_char = '\0';
         for c in macro_text.chars() {
-            let return_early: Option<DCResult> = match self.loop_iteration(c, w) {
+            let mut result = self.loop_iteration(c, w);
+
+            while let DCResult::Recursion(sub_text) = result {
+                //TODO: tail recursion optimization
+                // if macro text is empty, replace it with sub_text and continue
+                result = self.run_macro_str(w, sub_text);
+            }
+
+            let return_early: Option<DCResult> = match result {
+                DCResult::Recursion(_) => unreachable!(),
                 DCResult::QuitLevels(n) => {
                     if n == 0 {
                         Some(DCResult::Continue)
@@ -352,7 +362,10 @@ impl DC4 {
     pub fn program<R, W>(&mut self, r: &mut R, w: &mut W) -> DCResult
             where R: Read,
             W: Write {
-        loop_over_stream(r, |c| self.loop_iteration(c, w) )
+        loop_over_stream(r, |c| match self.loop_iteration(c, w) {
+            DCResult::Recursion(text) => self.run_macro_str(w, text),
+            other                     => other
+        } )
     }
 
     fn loop_iteration<W>(&mut self, c: char, w: &mut W) -> DCResult
@@ -624,10 +637,16 @@ impl DC4 {
             'K' => self.stack.push(DCValue::Num(BigInt::from(self.scale))),
 
             // pop top and execute as macro
+            /*
             'x' => match self.pop_string(w).and_then(|string| Some(self.run_macro_str(w, string))) {
                 Some(DCResult::Continue) => (),
                 None                     => (),
                 Some(other)              => return other,
+            },
+            */
+            'x' => match self.pop_string(w).and_then(|string| Some(DCResult::Recursion(string))) {
+                Some(result) => return result,
+                None         => ()
             },
 
             '+' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a + b)))),

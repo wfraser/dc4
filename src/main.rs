@@ -169,6 +169,7 @@ fn main() {
         };
 
         match result {
+            DCResult::Recursion(_) => unreachable!(),
             DCResult::Terminate => return,
             DCResult::QuitLevels(_) => (),  // nothing: if there are quit levels left at the end of
                                             // an input, they are ignored.
