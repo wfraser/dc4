@@ -536,6 +536,20 @@ impl DC4 {
                 None => self.error(w, format_args!("stack empty")),
             },
 
+            'P' => match self.stack.pop() {
+                Some(DCValue::Str(s)) => { write!(w, "{}", s).unwrap(); },
+                Some(DCValue::Num(n)) => {
+                    let mut int = n.abs();
+                    while int.is_positive() {
+                        let div_rem = int.div_rem(&BigInt::from(256));
+                        let byte = div_rem.1.to_u8().unwrap();
+                        write!(w, "{}", byte as char).unwrap();
+                        int = div_rem.0;
+                    }
+                },
+                None => { self.error(w, format_args!("stack empty")); },
+            },
+
             'c' => self.stack.clear(),
             'd' => self.stack.last().and_then(|value| Some(value.clone())).then(|value| {
                 self.stack.push(value);
@@ -665,6 +679,11 @@ impl DC4 {
             //TODO:
             // '|': modular exponentiation
             // 'v': square root
+
+            'z' => {
+                let depth = self.stack.len();
+                self.stack.push(DCValue::Num(BigInt::from(depth)));
+            },
 
             // catch-all for unhandled characters
             _ => self.error(w, format_args!("{:?} (0{:o}) unimplemented", c, c as u32))

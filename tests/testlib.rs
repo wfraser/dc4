@@ -180,3 +180,16 @@ fn test_array() {
 
     assert_eq!(dc4_run("1 0:a 0Sa 2 0:a La 0;a f"), "1\n0\n");
 }
+
+#[test]
+fn test_print_ascii() {
+    let program =
+        // "Test passed." in ASCII.
+        "84 101 115 116 32 112 97 115 115 101 100 46".to_string()
+        + "zsn"                 // save stack size to 'n'
+        + "[z:xz0<y]dsyx"       // put the stack into array 'x'
+        + "1[d;xP1+dln!<z]dszx" // print array 'x' as ASCII characters
+        + "10P";                // print a newline
+
+    assert_eq!(dc4_run(&program), "Test passed.\n");
+}
