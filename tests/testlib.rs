@@ -193,3 +193,42 @@ fn test_print_ascii() {
 
     assert_eq!(dc4_run(&program), "Test passed.\n");
 }
+
+#[test]
+fn test_quitlevels() {
+    let program = String::new()
+        + "5"                   // 5 times through the loop
+        + "[2Q]sq"              // macro to quit 2 levels
+        + "["
+            + "d3=q"            // on 3, call the quit macro
+            + "1-ddn0<x"        // subtract 1, print it, and if >0, loop again
+        + "]dsxx"
+        + "[done]p";
+
+    // virtual stack frames when the q macro is called:
+    // 3
+    // 4
+    // main
+
+    // This is a neat test because with tail recursion, 3 and 4 are actually in the same stack
+    // frame, and without precautions, the 2Q will quit the main frame as well.
+
+    assert_eq!(dc4_run(&program), "43done\n");
+}
+
+#[test]
+fn test_stackoverflow() {
+    // once I have tail recursion implemented, this should be bumped to 2000 or so.
+    let iterations = "200";
+
+    let program = String::new()
+        + "[pq]sq"      // 'q' macro to print and quit
+        + "0"           // start counter
+        + "["
+            + "1+"                    // increment the counter
+            + "d" + iterations + "=q" // if the counter hits the magic number, invoke the 'q' macro
+            + "lmx"                   // invoke ourselves
+        + "]dsmx";                    // store to 'm' and execute
+
+    assert_eq!(dc4_run(&program), iterations.to_string() + "\n");
+}

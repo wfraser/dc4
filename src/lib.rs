@@ -125,7 +125,7 @@ pub struct DC4 {
 #[derive(Debug)]
 pub enum DCResult {
     Terminate,
-    QuitLevels(i32),
+    QuitLevels(u32),
     Continue
 }
 
@@ -331,7 +331,14 @@ impl DC4 {
         self.prev_char = '\0';
         for c in macro_text.chars() {
             let return_early: Option<DCResult> = match self.loop_iteration(c, w) {
-                DCResult::QuitLevels(n) => Some(DCResult::QuitLevels(n - 1)),
+                DCResult::QuitLevels(n) => {
+                    if n == 0 {
+                        Some(DCResult::Continue)
+                    }
+                    else {
+                        Some(DCResult::QuitLevels(n - 1))
+                    }
+                },
                 DCResult::Terminate => Some(DCResult::Terminate),
                 DCResult::Continue => None,
             };
@@ -684,6 +691,16 @@ impl DC4 {
                 let depth = self.stack.len();
                 self.stack.push(DCValue::Num(BigInt::from(depth)));
             },
+
+            'Q' => match self.stack.pop() {
+                Some(DCValue::Num(ref n)) if n.is_positive() => {
+                    return DCResult::QuitLevels(n.to_u32().unwrap());
+                },
+                Some(_) => self.error(w, format_args!("Q command requires a number >= 1")),
+                None => self.error(w, format_args!("stack empty"))
+            },
+
+            'q' => return DCResult::QuitLevels(2),
 
             // catch-all for unhandled characters
             _ => self.error(w, format_args!("{:?} (0{:o}) unimplemented", c, c as u32))
