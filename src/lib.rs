@@ -21,17 +21,17 @@ mod option_then;
 use option_then::OptionThen;
 
 mod big_real;
-//use big_real::BigReal;
+use big_real::BigReal;
 
 #[derive(Clone, Debug)]
 enum DCValue {
     Str(String),
-    Num(BigInt)
+    Num(BigReal)
 }
 
 struct DCRegister {
     main_value: Option<DCValue>,
-    map: HashMap<BigInt, Rc<DCValue>>,
+    map: HashMap<BigReal, Rc<DCValue>>,
 }
 
 impl DCRegister {
@@ -42,11 +42,11 @@ impl DCRegister {
         }
     }
 
-    pub fn map_lookup(&self, key: &BigInt) -> Option<&Rc<DCValue>> {
+    pub fn map_lookup(&self, key: &BigReal) -> Option<&Rc<DCValue>> {
         self.map.get(key)
     }
 
-    pub fn map_insert(&mut self, key: BigInt, value: DCValue) {
+    pub fn map_insert(&mut self, key: BigReal, value: DCValue) {
         self.map.insert(key, Rc::new(value));
     }
 }
@@ -72,20 +72,20 @@ impl DCRegisterStack {
         }
     }
 
-    pub fn array_store(&mut self, key: BigInt, value: DCValue) {
+    pub fn array_store(&mut self, key: BigReal, value: DCValue) {
         if self.stack.is_empty() {
             self.stack.push(DCRegister::new(None));
         }
         self.stack.last_mut().unwrap().map_insert(key, value);
     }
 
-    pub fn array_load(&self, key: &BigInt) -> Rc<DCValue> {
+    pub fn array_load(&self, key: &BigReal) -> Rc<DCValue> {
         match self.stack.last() {
             Some(reg) => match reg.map_lookup(key) {
                 Some(value) => value.clone(),
-                None        => Rc::new(DCValue::Num(BigInt::zero()))
+                None        => Rc::new(DCValue::Num(BigReal::zero()))
             },
-            None      => Rc::new(DCValue::Num(BigInt::zero()))
+            None      => Rc::new(DCValue::Num(BigReal::zero()))
         }
     }
 
@@ -189,9 +189,9 @@ impl DC4 {
         }
     }
 
-    fn get_two_ints<W>(&mut self, w: &mut W) -> Option<(&BigInt, &BigInt)> where W: Write {
-        let a: &BigInt;
-        let b: &BigInt;
+    fn get_two_ints<W>(&mut self, w: &mut W) -> Option<(&BigReal, &BigReal)> where W: Write {
+        let a: &BigReal;
+        let b: &BigReal;
 
         let len = self.stack.len();
         if len < 2 {
@@ -218,7 +218,7 @@ impl DC4 {
 
     fn binary_operator<W, F>(&mut self, w: &mut W, mut f: F)
             where W: Write,
-            F: FnMut(&BigInt, &BigInt) -> Result<Option<DCValue>, String> {
+            F: FnMut(&BigReal, &BigReal) -> Result<Option<DCValue>, String> {
 
         let result: Result<Option<DCValue>, String>;
 
@@ -244,7 +244,7 @@ impl DC4 {
 
     fn binary_operator2<W, F>(&mut self, w: &mut W, mut f: F)
             where W: Write,
-            F: FnMut(&BigInt, &BigInt) -> Result<Vec<DCValue>, String> {
+            F: FnMut(&BigReal, &BigReal) -> Result<Vec<DCValue>, String> {
 
         let maybe_results: Result<Vec<DCValue>, String>;
 
@@ -269,7 +269,7 @@ impl DC4 {
 
     fn binary_predicate<W, F>(&mut self, w: &mut W, f: F) -> bool
             where W: Write,
-            F: Fn(&BigInt, &BigInt) -> Result<bool, String> {
+            F: Fn(&BigReal, &BigReal) -> Result<bool, String> {
 
         let mut result = false;
 
@@ -474,7 +474,7 @@ impl DC4 {
                     let key_dcvalue = self.stack.pop().unwrap();
                     let value = self.stack.pop().unwrap();
 
-                    let key: Option<BigInt> = match key_dcvalue {
+                    let key: Option<BigReal> = match key_dcvalue {
                         DCValue::Num(key) => {
                             if key.is_negative() {
                                 None
@@ -541,11 +541,12 @@ impl DC4 {
             if self.negative {
                 n = n * BigInt::from(-1);
             }
-            self.stack.push(DCValue::Num(n));
+            //TODO: set the shift correctly
+            self.stack.push(DCValue::Num(BigReal::from(n)));
             self.negative = false;
         }
         else if self.negative {
-            self.stack.push(DCValue::Num(BigInt::zero()));
+            self.stack.push(DCValue::Num(BigReal::zero()));
             self.negative = false;
         }
 
@@ -583,7 +584,7 @@ impl DC4 {
                 Some(DCValue::Num(n)) => {
                     let mut int = n.abs();
                     while int.is_positive() {
-                        let div_rem = int.div_rem(&BigInt::from(256));
+                        let div_rem = int.div_rem(&BigReal::from(256), self.scale);
                         let byte = div_rem.1.to_u8().unwrap();
                         write!(w, "{}", byte as char).unwrap();
                         int = div_rem.0;
@@ -654,18 +655,11 @@ impl DC4 {
                 None => self.error(w, format_args!("stack empty")),
             },
 
-            'I' => self.stack.push(DCValue::Num(BigInt::from(self.iradix))),
-            'O' => self.stack.push(DCValue::Num(BigInt::from(self.oradix))),
-            'K' => self.stack.push(DCValue::Num(BigInt::from(self.scale))),
+            'I' => self.stack.push(DCValue::Num(BigReal::from(self.iradix))),
+            'O' => self.stack.push(DCValue::Num(BigReal::from(self.oradix))),
+            'K' => self.stack.push(DCValue::Num(BigReal::from(self.scale))),
 
             // pop top and execute as macro
-            /*
-            'x' => match self.pop_string(w).and_then(|string| Some(self.run_macro_str(w, string))) {
-                Some(DCResult::Continue) => (),
-                None                     => (),
-                Some(other)              => return other,
-            },
-            */
             'x' => match self.pop_string(w).and_then(|string| Some(DCResult::Recursion(string))) {
                 Some(result) => return result,
                 None         => ()
@@ -675,49 +669,56 @@ impl DC4 {
             '-' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a - b)))),
             '*' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a * b)))),
             '/' => {
+                let scale = self.scale;
                 self.binary_operator(w, |a, b| {
                     if b.is_zero() {
                         Err(format!("divide by zero"))
                     }
                     else {
-                        Ok(Some(DCValue::Num(a / b)))
+                        Ok(Some(DCValue::Num(a.div(b, scale))))
                     }
                 });
             },
 
             // remainder
-            '%' => self.binary_operator(w, |a, b| {
-                if b.is_zero() {
-                    Err(format!("divide by zero"))
-                }
-                else {
-                    Ok(Some(DCValue::Num(a % b)))
-                }
-            }),
+            '%' => {
+                let scale = self.scale;
+                self.binary_operator(w, |a, b| {
+                    if b.is_zero() {
+                        Err(format!("divide by zero"))
+                    }
+                    else {
+                        Ok(Some(DCValue::Num(a.rem(b, scale))))
+                    }
+                })
+            },
 
             // quotient and remainder
-            '~' => self.binary_operator2(w, |a, b| {
-                if b.is_zero() {
-                    Err(format!("divide by zero"))
-                }
-                else {
-                    let div_rem = a.div_rem(b);
-                    Ok(vec![ DCValue::Num(div_rem.0), DCValue::Num(div_rem.1) ])
-                }
-            }),
+            '~' => {
+                let scale = self.scale;
+                self.binary_operator2(w, |a, b| {
+                    if b.is_zero() {
+                        Err(format!("divide by zero"))
+                    }
+                    else {
+                        let div_rem = a.div_rem(b, scale);
+                        Ok(vec![ DCValue::Num(div_rem.0), DCValue::Num(div_rem.1) ])
+                    }
+                })
+            },
 
             // exponentiate
             '^' => self.binary_operator(w, |base, exponent| {
-                let mut result: BigInt;
+                let mut result: BigReal;
                 if exponent.is_zero() {
-                    result = BigInt::one();
+                    result = BigReal::one();
                 }
                 else if exponent.is_negative() {
-                    result = BigInt::zero();
+                    result = BigReal::zero();
                 }
                 else {
                     result = base.clone();
-                    for _ in range(BigInt::zero(), exponent - BigInt::one()) {
+                    for _ in num::iter::range(BigReal::zero(), exponent - BigReal::one()) {
                         result = result * base;
                     }
                 }
@@ -730,7 +731,7 @@ impl DC4 {
 
             'z' => {
                 let depth = self.stack.len();
-                self.stack.push(DCValue::Num(BigInt::from(depth)));
+                self.stack.push(DCValue::Num(BigReal::from(depth)));
             },
 
             'Q' => match self.stack.pop() {

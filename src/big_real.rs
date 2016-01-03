@@ -8,32 +8,88 @@ use std::ops::{Add, Sub, Mul, Neg};
 
 extern crate num;
 use num::{BigInt};
+use num::traits::{Zero, One, Signed, ToPrimitive, FromPrimitive};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
 pub struct BigReal {
     shift: u32, // in decimal digits
     value: BigInt,
 }
 
-pub trait BigRealFrom<T>: Sized {
-    fn new(value: T, shift: u32) -> Self;
-}
-
 impl BigReal {
-    pub fn change_shift(&mut self, desired_shift: u32) {
+    pub fn change_shift(&self, desired_shift: u32) -> BigReal {
         let ten = BigInt::from(10);
-        if desired_shift > self.shift {
+        let mut result = self.clone();
+        if desired_shift > result.shift {
             for _ in 0..(desired_shift - self.shift) {
-                self.value = &self.value * &ten;
+                result.value = &result.value * &ten;
             }
         }
         else {
-            for _ in 0..(self.shift - desired_shift) {
-                self.value = &self.value / &ten;
+            for _ in 0..(result.shift - desired_shift) {
+                result.value = &result.value / &ten;
             }
         }
-        self.shift = desired_shift;
+        result.shift = desired_shift;
+        result
     }
+
+    pub fn to_str_radix(&self, radix: u32) -> String {
+        //TODO
+        self.value.to_str_radix(radix)
+    }
+
+    // Our own implementations of Div and Rem, which need an extra "scale" argument:
+
+    pub fn div(&self, rhs: &BigReal, scale: u32) -> BigReal {
+        //TODO
+        BigReal::zero()
+    }
+
+    pub fn rem(&self, rhs: &BigReal, scale: u32) -> BigReal {
+        //TODO
+        BigReal::zero()
+    }
+
+    pub fn div_rem(&self, rhs: &BigReal, scale: u32) -> (BigReal, BigReal) {
+        //TODO
+        (BigReal::zero(), BigReal::zero())
+    }
+
+    // These are in num::traits::Signed, but that requires num::traits::Num, which we don't want to
+    // implement fully, because it requires Div and Rem (which we can't implement because those
+    // methods need an extra "scale" argument here).
+    pub fn is_positive(&self) -> bool {
+        self.value.is_positive()
+    }
+
+    pub fn is_negative(&self) -> bool {
+        self.value.is_negative()
+    }
+
+    pub fn abs(&self) -> BigReal {
+        BigReal::new(self.value.abs(), self.shift)
+    }
+}
+
+impl Zero for BigReal {
+    fn zero() -> BigReal {
+        BigReal::from(0)
+    }
+
+    fn is_zero(&self) -> bool {
+        self.value.is_zero()
+    }
+}
+
+impl One for BigReal {
+    fn one() -> BigReal {
+        BigReal::from(1)
+    }
+}
+
+pub trait BigRealFrom<T>: Sized {
+    fn new(value: T, shift: u32) -> Self;
 }
 
 macro_rules! bigreal_from_primitive {
@@ -43,6 +99,32 @@ macro_rules! bigreal_from_primitive {
                 BigReal::new(BigInt::from(value), shift)
             }
         }
+
+        impl From<$prim> for BigReal {
+            fn from(value: $prim) -> BigReal {
+                BigReal::new(BigInt::from(value), 0)
+            }
+        }
+    }
+}
+
+impl ToPrimitive for BigReal {
+    fn to_i64(&self) -> Option<i64> {
+        self.change_shift(0).value.to_i64()
+    }
+
+    fn to_u64(&self) -> Option<u64> {
+        self.change_shift(0).value.to_u64()
+    }
+}
+
+impl FromPrimitive for BigReal {
+    fn from_i64(n: i64) -> Option<BigReal> {
+        Some(BigReal::from(n))
+    }
+
+    fn from_u64(n: u64) -> Option<BigReal> {
+        Some(BigReal::from(n))
     }
 }
 
@@ -61,6 +143,15 @@ impl BigRealFrom<BigInt> for BigReal {
     fn new(value: BigInt, shift: u32) -> BigReal {
         BigReal {
             shift: shift,
+            value: value,
+        }
+    }
+}
+
+impl From<BigInt> for BigReal {
+    fn from(value: BigInt) -> BigReal {
+        BigReal {
+            shift: 0,
             value: value,
         }
     }
@@ -124,19 +215,18 @@ impl<'a, 'b> Add<&'b BigReal> for &'a BigReal {
         }
         else {
             let x: &BigReal;
-            let mut y: BigReal;
+            let y: &BigReal;
             if self.shift > rhs.shift {
                 // adjust rhs
                 x = self;
-                y = (*rhs).clone();
+                y = rhs;
             }
             else {
                 // adjust self
                 x = rhs;
-                y = (*self).clone();
+                y = self;
             }
-            y.change_shift(x.shift);
-            BigReal::new(&x.value + y.value, x.shift)
+            BigReal::new(&x.value + y.change_shift(x.shift).value, x.shift)
         }
     }
 }
