@@ -9,7 +9,7 @@ use std::ops::{Add, Sub, Mul, Neg};
 extern crate num;
 use num::{BigInt};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BigReal {
     scale: u32, // decimal digits to shift
     value: BigInt,
@@ -163,12 +163,25 @@ impl<'a, 'b> Mul<&'b BigReal> for &'a BigReal {
 }
 
 #[test]
+fn test_new() {
+    let n = BigReal::new(1234, 5);
+    assert_eq!(n.value, BigInt::from(1234));
+    assert_eq!(n.scale, 5);
+}
+
+#[test]
+fn test_cmp() {
+    let a = BigReal::new(1, 2);
+    let b = BigReal::new(2, 2);
+    assert!(a != b);
+}
+
+#[test]
 fn test_add() {
     let a = BigReal::new(1234, 3);
     let b = BigReal::new(42, 0);
     let c = a + b;
-    assert_eq!(c.value, BigInt::from(43234));
-    assert_eq!(c.scale, 3);
+    assert_eq!(c, BigReal::new(43234, 3));
 }
 
 #[test]
@@ -176,8 +189,7 @@ fn test_sub() {
     let a = BigReal::new(1234, 3);
     let b = BigReal::new(42, 0);
     let c = a - b;
-    assert_eq!(c.value, BigInt::from(-40766));
-    assert_eq!(c.scale, 3);
+    assert_eq!(c, BigReal::new(-40766, 3));
 }
 
 #[test]
@@ -185,8 +197,7 @@ fn test_mul1() {
     let a = BigReal::new(25, 0);
     let b = BigReal::new(4, 0);
     let c = a * b;
-    assert_eq!(c.value, BigInt::from(100));
-    assert_eq!(c.scale, 0);
+    assert_eq!(c, BigReal::new(100, 0));
 }
 
 #[test]
@@ -194,6 +205,5 @@ fn test_mul2() {
     let a = BigReal::new(25, 1);
     let b = BigReal::new(4, 2);
     let c = a * b;
-    assert_eq!(c.value, BigInt::from(100));
-    assert_eq!(c.scale, 3);
+    assert_eq!(c, BigReal::new(100, 3));
 }
