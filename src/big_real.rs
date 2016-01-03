@@ -4,10 +4,12 @@
 // Copyright (c) 2016 by William R. Fraser
 //
 
+use std::cmp::max;
 use std::ops::{Add, Sub, Mul, Neg};
 
 extern crate num;
-use num::{BigInt};
+use num::BigInt;
+use num::integer::Integer;
 use num::traits::{Zero, One, Signed, ToPrimitive, FromPrimitive};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
@@ -41,19 +43,27 @@ impl BigReal {
 
     // Our own implementations of Div and Rem, which need an extra "scale" argument:
 
+    fn adjust_for_div(&self, rhs: &BigReal, scale: u32) -> (BigInt, BigInt) {
+        let max_shift = max(self.shift, rhs.shift);
+        let self_adj = self.change_shift(max_shift + scale).value;
+        let rhs_adj = rhs.change_shift(max_shift).value;
+        (self_adj, rhs_adj)
+    }
+
     pub fn div(&self, rhs: &BigReal, scale: u32) -> BigReal {
-        //TODO
-        BigReal::zero()
+        let (self_adj, rhs_adj) = self.adjust_for_div(rhs, scale);
+        BigReal::new(self_adj / rhs_adj, scale)
     }
 
     pub fn rem(&self, rhs: &BigReal, scale: u32) -> BigReal {
-        //TODO
-        BigReal::zero()
+        let (self_adj, rhs_adj) = self.adjust_for_div(rhs, scale);
+        BigReal::new(self_adj % rhs_adj, scale)
     }
 
     pub fn div_rem(&self, rhs: &BigReal, scale: u32) -> (BigReal, BigReal) {
-        //TODO
-        (BigReal::zero(), BigReal::zero())
+        let (self_adj, rhs_adj) = self.adjust_for_div(rhs, scale);
+        let div_rem = self_adj.div_rem(&rhs_adj);
+        (BigReal::new(div_rem.0, scale), BigReal::new(div_rem.1, scale))
     }
 
     // These are in num::traits::Signed, but that requires num::traits::Num, which we don't want to
@@ -296,4 +306,20 @@ fn test_mul2() {
     let b = BigReal::new(4, 2);
     let c = a * b;
     assert_eq!(c, BigReal::new(100, 3));
+}
+
+#[test]
+fn test_div1() {
+    let a = BigReal::new(50, 0);    // 50.
+    let b = BigReal::new(55, 3);    //  0.055
+    let c = a.div(&b, 0);
+    assert_eq!(c, BigReal::new(909, 0));
+}
+
+#[test]
+fn test_div2() {
+    let a = BigReal::new(505, 1);   // 50.5
+    let b = BigReal::new(55, 3);    //  0.055
+    let c = a.div(&b, 1);
+    assert_eq!(c, BigReal::new(9181, 1));
 }
