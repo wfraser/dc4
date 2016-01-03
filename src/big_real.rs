@@ -11,36 +11,36 @@ use num::{BigInt};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BigReal {
-    scale: u32, // decimal digits to shift
+    shift: u32, // in decimal digits
     value: BigInt,
 }
 
 pub trait BigRealFrom<T>: Sized {
-    fn new(value: T, scale: u32) -> Self;
+    fn new(value: T, shift: u32) -> Self;
 }
 
 impl BigReal {
-    pub fn change_scale(&mut self, desired_scale: u32) {
+    pub fn change_shift(&mut self, desired_shift: u32) {
         let ten = BigInt::from(10);
-        if desired_scale > self.scale {
-            for _ in 0..(desired_scale - self.scale) {
+        if desired_shift > self.shift {
+            for _ in 0..(desired_shift - self.shift) {
                 self.value = &self.value * &ten;
             }
         }
         else {
-            for _ in 0..(self.scale - desired_scale) {
+            for _ in 0..(self.shift - desired_shift) {
                 self.value = &self.value / &ten;
             }
         }
-        self.scale = desired_scale;
+        self.shift = desired_shift;
     }
 }
 
 macro_rules! bigreal_from_primitive {
     ($prim:ident) => {
         impl BigRealFrom<$prim> for BigReal {
-            fn new(value: $prim, scale: u32) -> BigReal {
-                BigReal::new(BigInt::from(value), scale)
+            fn new(value: $prim, shift: u32) -> BigReal {
+                BigReal::new(BigInt::from(value), shift)
             }
         }
     }
@@ -58,9 +58,9 @@ bigreal_from_primitive!(i64);
 bigreal_from_primitive!(isize);
 
 impl BigRealFrom<BigInt> for BigReal {
-    fn new(value: BigInt, scale: u32) -> BigReal {
+    fn new(value: BigInt, shift: u32) -> BigReal {
         BigReal {
-            scale: scale,
+            shift: shift,
             value: value,
         }
     }
@@ -119,13 +119,13 @@ impl<'a, 'b> Add<&'b BigReal> for &'a BigReal {
     type Output = BigReal;
 
     fn add(self, rhs: &BigReal) -> BigReal {
-        if self.scale == rhs.scale {
-            BigReal::new(&self.value + &rhs.value, self.scale)
+        if self.shift == rhs.shift {
+            BigReal::new(&self.value + &rhs.value, self.shift)
         }
         else {
             let x: &BigReal;
             let mut y: BigReal;
-            if self.scale > rhs.scale {
+            if self.shift > rhs.shift {
                 // adjust rhs
                 x = self;
                 y = (*rhs).clone();
@@ -135,8 +135,8 @@ impl<'a, 'b> Add<&'b BigReal> for &'a BigReal {
                 x = rhs;
                 y = (*self).clone();
             }
-            y.change_scale(x.scale);
-            BigReal::new(&x.value + y.value, x.scale)
+            y.change_shift(x.shift);
+            BigReal::new(&x.value + y.value, x.shift)
         }
     }
 }
@@ -148,7 +148,7 @@ impl<'a, 'b> Sub<&'b BigReal> for &'a BigReal {
 
     #[inline]
     fn sub(self, rhs: &BigReal) -> BigReal {
-        self.add(BigReal::new(rhs.value.clone().neg(), rhs.scale))
+        self.add(BigReal::new(rhs.value.clone().neg(), rhs.shift))
     }
 }
 
@@ -158,7 +158,7 @@ impl<'a, 'b> Mul<&'b BigReal> for &'a BigReal {
     type Output = BigReal;
 
     fn mul(self, rhs: &BigReal) -> BigReal {
-        BigReal::new(&self.value * &rhs.value, self.scale + rhs.scale)
+        BigReal::new(&self.value * &rhs.value, self.shift + rhs.shift)
     }
 }
 
@@ -166,7 +166,7 @@ impl<'a, 'b> Mul<&'b BigReal> for &'a BigReal {
 fn test_new() {
     let n = BigReal::new(1234, 5);
     assert_eq!(n.value, BigInt::from(1234));
-    assert_eq!(n.scale, 5);
+    assert_eq!(n.shift, 5);
 }
 
 #[test]
