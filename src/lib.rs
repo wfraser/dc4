@@ -1,10 +1,8 @@
 //
 // dc4 :: A Unix dc(1) implementation in Rust
 //
-// Copyright (c) 2015 by William R. Fraser
+// Copyright (c) 2015-2016 by William R. Fraser
 //
-
-extern crate num;
 
 use std::io::Read;
 use std::io::Write;
@@ -13,6 +11,8 @@ use std::fmt;
 use std::fmt::Arguments;
 use std::mem;
 use std::rc::Rc;
+
+extern crate num;
 use num::traits::{ToPrimitive, Zero, One, Signed};
 use num::{BigInt, Integer};
 use num::iter::range;

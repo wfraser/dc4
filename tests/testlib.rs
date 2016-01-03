@@ -1,3 +1,9 @@
+//
+// dc4 test suite
+//
+// Copyright (c) 2015-2016 by William R. Fraser
+//
+
 extern crate dc4;
 
 use std::io::Cursor;

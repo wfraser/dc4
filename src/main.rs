@@ -4,7 +4,7 @@
 // This is the program entry point.
 // It parses command line arguments and invokes the dc4 library.
 //
-// Copyright (c) 2015 by William R. Fraser
+// Copyright (c) 2015-2016 by William R. Fraser
 //
 
 #![cfg_attr(test, allow(dead_code))]

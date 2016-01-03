@@ -2,7 +2,7 @@
 // OptionThen: a trait providing a method 'then' for Option.
 // Same as Option::and_then, except this one returns nothing.
 //
-// Copyright (c) 2015 by William R. Fraser
+// Copyright (c) 2015-2016 by William R. Fraser
 //
 
 pub trait OptionThen<T> {
