@@ -238,3 +238,10 @@ fn test_stackoverflow() {
 
     assert_eq!(dc4_run(&program), iterations.to_string() + "\n");
 }
+
+#[test]
+fn test_frac_output() {
+    assert_eq!(dc4_run("2k 50 3 /f"), "16.66\n");
+    assert_eq!(dc4_run("5k 16o 3 10 /f"), ".4CCCC\n");
+    assert_eq!(dc4_run("2k 2o 1 2 /f"), ".1000000\n");
+}

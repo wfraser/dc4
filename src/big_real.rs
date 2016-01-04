@@ -37,8 +37,55 @@ impl BigReal {
     }
 
     pub fn to_str_radix(&self, radix: u32) -> String {
-        //TODO
-        self.value.to_str_radix(radix)
+        if self.shift == 0 {
+            self.value.to_str_radix(radix)
+        }
+        else if radix == 10 {
+            // For decimal, it's fine to just put the dot in the right place.
+            let output = self.value.to_str_radix(radix);
+            let decimal_pos = output.len() - self.shift as usize;
+            output[..decimal_pos].to_string() + "." + &output[decimal_pos..]
+        }
+        else {
+            // For non-decimal, the whole part is fine, but the string representation of the
+            // fractional part needds to be computed manually using long division.
+
+            let whole = self.change_shift(0);
+            let mut string_result = if whole.value.is_zero() {
+                // suppress leading zero
+                ".".to_string()
+            }
+            else {
+                whole.value.to_str_radix(radix) + "."
+            };
+
+            let big_radix = BigInt::from(radix);
+
+            // start with the part shifted over one place value (because otherwise the first
+            // iteration would always yield zero).
+            let mut part = (&self.value - whole.change_shift(self.shift).value) * &big_radix;
+
+            // These control when we stop the iteration.
+            // When the current place value (in whatever radix) is greater than the amount of the
+            // shift (in decimal), we stop.
+            let max_place = BigReal::one().change_shift(self.shift).value;
+            let mut place = big_radix.clone();
+
+            loop {
+                let div_rem = part.div_rem(&max_place);
+
+                string_result.push_str(&div_rem.0.to_str_radix(radix));
+                part = div_rem.1 * &big_radix;
+
+                // check if we've reached the appropriate precision
+                if place >= max_place {
+                    break;
+                }
+                place = place * &big_radix;
+            }
+
+            string_result
+        }
     }
 
     // Our own implementations of Div and Rem, which need an extra "scale" argument:
@@ -322,4 +369,20 @@ fn test_div2() {
     let b = BigReal::new(55, 3);    //  0.055
     let c = a.div(&b, 1);
     assert_eq!(c, BigReal::new(9181, 1));
+}
+
+#[test]
+fn test_str1() {
+    let a = BigReal::new(1234, 3);  // 1.234
+    assert_eq!(a.to_str_radix(10), "1.234");
+    assert_eq!(a.to_str_radix(16), "1.3be");
+    assert_eq!(a.to_str_radix(2), "1.0011101111");
+}
+
+#[test]
+fn test_str2() {
+    let a = BigReal::new(1100, 3); // 1.100
+    assert_eq!(a.to_str_radix(10), "1.100");
+    assert_eq!(a.to_str_radix(16), "1.199");
+    assert_eq!(a.to_str_radix(2), "1.0001100110");
 }
