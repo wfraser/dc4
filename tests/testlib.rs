@@ -245,3 +245,8 @@ fn test_frac_output() {
     assert_eq!(dc4_run("5k 16o 3 10 /f"), ".4CCCC\n");
     assert_eq!(dc4_run("2k 2o 1 2 /f"), ".1000000\n");
 }
+
+#[test]
+fn test_small_print() {
+    assert_eq!(dc4_run("5k 50 3 %f"), ".00002\n");
+}

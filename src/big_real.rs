@@ -42,9 +42,19 @@ impl BigReal {
         }
         else if radix == 10 {
             // For decimal, it's fine to just put the dot in the right place.
-            let output = self.value.to_str_radix(radix);
-            let decimal_pos = output.len() - self.shift as usize;
-            output[..decimal_pos].to_string() + "." + &output[decimal_pos..]
+            let output: String = self.value.to_str_radix(radix);
+            if output.len() < self.shift as usize {
+                // output lacks leading zeroes
+                let mut s = ".".to_string();
+                for _ in 0..(self.shift as usize - output.len()) {
+                    s.push_str("0");
+                }
+                s + &output
+            }
+            else {
+                let decimal_pos = output.len() - self.shift as usize;
+                output[..decimal_pos].to_string() + "." + &output[decimal_pos..]
+            }
         }
         else {
             // For non-decimal, the whole part is fine, but the string representation of the
