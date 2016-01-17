@@ -326,7 +326,7 @@ impl DC4 {
             _ => None
         };
         match macro_string {
-            Some(string) => self.run_macro_str(w, string),
+            Some(string) => DCResult::Recursion(string),
             _ => DCResult::Continue
         }
     }
@@ -337,6 +337,7 @@ impl DC4 {
         let mut current_text = macro_text.into_bytes();
         let mut pos = 0;
         let mut len = current_text.len();
+        let mut tail_recursion_levels = 0;
         while pos < len {
             let c = current_text[pos] as char;
             pos += 1;
@@ -353,6 +354,7 @@ impl DC4 {
                     current_text = sub_text.into_bytes();
                     pos = 0;
                     len = current_text.len();
+                    tail_recursion_levels += 1;
                     result = DCResult::Continue;
                 }
                 else {
@@ -364,11 +366,15 @@ impl DC4 {
             let return_early: Option<DCResult> = match result {
                 DCResult::Recursion(_) => unreachable!(),
                 DCResult::QuitLevels(n) => {
-                    if n == 0 {
-                        Some(DCResult::Continue)
+                    if n > tail_recursion_levels {
+                        Some(DCResult::QuitLevels(n - tail_recursion_levels))
                     }
-                    else {
-                        Some(DCResult::QuitLevels(n - 1))
+                    else if n < tail_recursion_levels {
+                        tail_recursion_levels -= n;
+                        None
+                    }
+                    else { // n == tail_recursion_levels
+                        Some(DCResult::Continue)
                     }
                 },
                 DCResult::Terminate => Some(DCResult::Terminate),
