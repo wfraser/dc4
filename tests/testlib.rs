@@ -223,6 +223,27 @@ fn test_quitlevels() {
 }
 
 #[test]
+fn test_quitlevels2() {
+    let program = String::new()
+        + "19 20 21 22"         // some values to accumulate
+        + "[2Q]sq"              // macro to quit 2 levels
+        + "["
+            + "z1=q"            // call quit macro when the stack depth is 1 (no more to accumulate)
+            + "+"               // otherwise, add the top two numbers
+            + "0_=x"            // unconditionally execute this macro again
+        + "]dsxx"
+        + "f"                   // write the stack at the end
+        ;
+
+    // The [2Q] will be executed when the 'x' macro has run 3 times.
+    // Even though it says to quit 2 levels, and we're at a virtual stack depth of 3, it needs to
+    // quit out of 'x' entirely, because it's *tail* recursion: there's nothing to be done once a
+    // level exits.
+
+    assert_eq!(dc4_run(&program), "82\n");
+}
+
+#[test]
 #[ignore] // because this test is so slow. be sure to run 'cargo test -- --ignored' occasionally.
 fn test_stackoverflow() {
     let iterations = "200000";

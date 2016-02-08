@@ -369,11 +369,7 @@ impl DC4 {
                     if n > tail_recursion_levels {
                         Some(DCResult::QuitLevels(n - tail_recursion_levels))
                     }
-                    else if n < tail_recursion_levels {
-                        tail_recursion_levels -= n;
-                        None
-                    }
-                    else { // n == tail_recursion_levels
+                    else { // n <= tail_recursion_levels
                         Some(DCResult::Continue)
                     }
                 },
