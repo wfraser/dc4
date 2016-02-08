@@ -175,7 +175,7 @@ fn main() {
                     Ok(mut file) => dc.program(&mut file, &mut io::stdout()),
                     Err(e)       => {
                         println!("{}: File open failed on {:?}: {}", progname(), path, e);
-                        DCResult::Terminate
+                        DCResult::Terminate(0)
                     }
                 }
             },
@@ -186,7 +186,7 @@ fn main() {
 
         match result {
             DCResult::Recursion(_) => unreachable!(),
-            DCResult::Terminate => return,
+            DCResult::Terminate(_) => return,
             DCResult::QuitLevels(_) => (),  // nothing: if there are quit levels left at the end of
                                             // an input, they are ignored.
             DCResult::Continue => ()

@@ -127,7 +127,7 @@ pub struct DC4 {
 
 #[derive(Debug)]
 pub enum DCResult {
-    Terminate,
+    Terminate(u32),
     QuitLevels(u32),
     Continue,
     Recursion(String),
@@ -145,8 +145,7 @@ fn loop_over_stream<S, F>(s: &mut S, mut f: F) -> DCResult
                 }
             },
             Err(err)    => {
-                println!("Error reading from input: {}", err);
-                return DCResult::Terminate;
+                panic!("Error reading from input: {}", err);
             }
         }
     }
@@ -368,12 +367,17 @@ impl DC4 {
                 DCResult::QuitLevels(n) => {
                     if n > tail_recursion_levels {
                         Some(DCResult::QuitLevels(n - tail_recursion_levels))
-                    }
-                    else { // n <= tail_recursion_levels
+                    } else {
                         Some(DCResult::Continue)
                     }
                 },
-                DCResult::Terminate => Some(DCResult::Terminate),
+                DCResult::Terminate(n) => {
+                    if n > tail_recursion_levels {
+                        Some(DCResult::Terminate(n - tail_recursion_levels))
+                    } else {
+                        Some(DCResult::Continue)
+                    }
+                },
                 DCResult::Continue => None,
             };
             if return_early.is_some() {
@@ -744,7 +748,7 @@ impl DC4 {
                 None => self.error(w, format_args!("stack empty"))
             },
 
-            'q' => return DCResult::QuitLevels(2),
+            'q' => return DCResult::Terminate(2),
 
             // catch-all for unhandled characters
             _ => self.error(w, format_args!("{:?} (0{:o}) unimplemented", c, c as u32))
