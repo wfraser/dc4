@@ -10,3 +10,6 @@ num = "^0.1.29"
 name = "dc4"
 doc = false
 path = "src/main.rs"
+
+[profile.release]
+lto = true
