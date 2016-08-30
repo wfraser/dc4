@@ -4,11 +4,9 @@
 // Copyright (c) 2015-2016 by William R. Fraser
 //
 
-use std::io::Read;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::collections::HashMap;
 use std::fmt;
-use std::fmt::Arguments;
 use std::mem;
 use std::rc::Rc;
 
@@ -94,12 +92,7 @@ impl DCRegisterStack {
     }
 
     pub fn pop(&mut self) -> Option<DCValue> {
-        if self.stack.is_empty() {
-            None
-        }
-        else {
-            self.stack.pop().unwrap().main_value
-        }
+        self.stack.pop().and_then(|v| v.main_value)
     }
 
     pub fn push(&mut self, value: DCValue) {
@@ -268,27 +261,20 @@ impl DC4 {
             F: Fn(&BigReal, &BigReal) -> Result<bool, String> {
 
         let mut result = false;
-
         self.binary_operator(w, |a, b| {
-            match f(a, b) {
-                Ok(pred_result) => {result = pred_result; Ok(None)},
-                Err(msg) => Err(msg)
-            }
+            f(a, b).map(|v| {
+                result = v;
+                None
+            })
         });
-
         result
     }
 
     fn pop_stack<W>(&mut self, w: &mut W) -> Option<DCValue> where W: Write {
-        let value: DCValue;
-        match self.stack.pop() {
-            Some(v) => { value = v; },
-            None    => {
-                self.error(w, format_args!("stack empty"));
-                return None;
-            }
-        }
-        Some(value)
+        self.stack.pop().or_else(|| {
+            self.error(w, format_args!("stack empty"));
+            None
+        })
     }
 
     fn pop_string<W>(&mut self, w: &mut W) -> Option<String> where W: Write {
@@ -359,43 +345,37 @@ impl DC4 {
                 }
             }
 
-            let return_early: Option<DCResult> = match result {
+            match result {
                 DCResult::Recursion(_) => unreachable!(),
                 DCResult::QuitLevels(n) => {
                     if n > tail_recursion_levels {
-                        Some(DCResult::QuitLevels(n - tail_recursion_levels))
+                        return DCResult::QuitLevels(n - tail_recursion_levels);
                     } else {
-                        Some(DCResult::Continue)
+                        return DCResult::Continue;
                     }
                 },
                 DCResult::Terminate(n) => {
                     if n > tail_recursion_levels {
-                        Some(DCResult::Terminate(n - tail_recursion_levels))
+                        return DCResult::Terminate(n - tail_recursion_levels);
                     } else {
-                        Some(DCResult::Continue)
+                        return DCResult::Continue;
                     }
                 },
-                DCResult::Continue => None,
-            };
-            if return_early.is_some() {
-                return return_early.unwrap();
+                DCResult::Continue => (),
             }
         }
         DCResult::Continue
     }
 
-    pub fn program<R, W>(&mut self, r: &mut R, w: &mut W) -> DCResult
-            where R: Read,
-            W: Write {
+    pub fn program<R: Read, W: Write>(&mut self, r: &mut R, w: &mut W)
+            -> DCResult {
         loop_over_stream(r, |c| match self.loop_iteration(c, w) {
             DCResult::Recursion(text) => self.run_macro_str(w, text),
             other                     => other
-        } )
+        })
     }
 
-    fn loop_iteration<W>(&mut self, c: char, w: &mut W) -> DCResult
-            where W: Write {
-
+    fn loop_iteration<W: Write>(&mut self, c: char, w: &mut W) -> DCResult {
         if self.bracket_level > 0 {
             if c == '[' {
                 self.bracket_level += 1;
@@ -514,12 +494,9 @@ impl DC4 {
             self.invert = false;
         }
 
-        match return_early {
-            None => {},
-            Some(other) => {
-                self.prev_char = '\0';
-                return other;
-            },
+        if let Some(other) = return_early {
+            self.prev_char = '\0';
+            return other;
         }
 
         if (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') {
@@ -538,9 +515,8 @@ impl DC4 {
             return DCResult::Continue;
         }
 
-        if !self.input_num.is_none() {
-            //println!("pushing: {:?}", self.input_num.as_ref().unwrap());
-            let mut n = self.input_num.take().unwrap();
+        if let Some(mut n) = self.input_num.take() {
+            //println!("pushing: {:?}", n);
             if self.negative {
                 n = n * BigInt::from(-1);
             }
@@ -755,7 +731,7 @@ impl DC4 {
         DCResult::Continue
     }
 
-    fn error<W>(&self, w: &mut W, args: Arguments) where W: Write {
+    fn error<W>(&self, w: &mut W, args: fmt::Arguments) where W: Write {
         write!(w, "{}: {}\n", self.program_name, fmt::format(args)).unwrap();
     }
 }

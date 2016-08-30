@@ -7,8 +7,6 @@
 // Copyright (c) 2015-2016 by William R. Fraser
 //
 
-#![cfg_attr(test, allow(dead_code))]
-
 extern crate dc4;
 
 use std::env;
@@ -147,7 +145,6 @@ fn parse_arguments<'a>(args: &'a Vec<&'a str>)
     if process_stdin {
         inputs.push(DCInput::Stdin);
     }
-
 
     Some(inputs)
 }
