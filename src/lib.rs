@@ -17,9 +17,6 @@ use num::traits::{ToPrimitive, Zero, One, Signed};
 use num::{BigInt, Integer};
 use num::iter::range;
 
-mod option_then;
-use option_then::OptionThen;
-
 mod big_real;
 use big_real::BigReal;
 
@@ -422,18 +419,18 @@ impl DC4 {
         let mut return_early: Option<DCResult> = Some(DCResult::Continue);
         let invert = self.invert;
         match self.prev_char {
-            's' => self.pop_stack(w).then(|value| {
+            's' => if let Some(value) = self.pop_stack(w) {
                 self.registers[c as usize].set(value);
-            }),
+            },
 
             'l' => match self.registers[c as usize].value() {
                 Some(value) => self.stack.push(value.clone()),
                 None => self.error(w, format_args!("register '{}' (0{:o}) is empty", c, c as usize)),
             },
 
-            'S' => self.pop_stack(w).then(|value| {
+            'S' => if let Some(value) = self.pop_stack(w) {
                 self.registers[c as usize].push(value);
-            }),
+            },
 
             'L' => match self.registers[c as usize].pop() {
                 Some(value) => self.stack.push(value),
@@ -600,9 +597,9 @@ impl DC4 {
             },
 
             'c' => self.stack.clear(),
-            'd' => self.stack.last().and_then(|value| Some(value.clone())).then(|value| {
+            'd' => if let Some(value) = self.stack.last().map(|v| v.clone()) {
                 self.stack.push(value);
-            }),
+            },
             'r' => if self.stack.len() >= 2 {
                 let a = self.stack.pop().unwrap();
                 let b = self.stack.pop().unwrap();
