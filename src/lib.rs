@@ -11,8 +11,8 @@ use std::mem;
 use std::rc::Rc;
 
 extern crate num;
-use num::traits::{ToPrimitive, Zero, One, Signed};
-use num::{BigInt, Integer};
+use num::traits::{ToPrimitive, Zero, One};
+use num::BigInt;
 use num::iter::range;
 
 mod big_real;
