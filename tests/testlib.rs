@@ -285,4 +285,8 @@ fn test_decimal() {
     assert_eq!(dc4_run("16i 1.F00 f"), "1.937\n");
     assert_eq!(dc4_run("16i 1.F000 f"), "1.9375\n");
     assert_eq!(dc4_run("16i 1.F0000 f"), "1.93750\n");
+
+    // test math with mixed precisions
+    assert_eq!(dc4_run("10.5 7 *f"), "73.5\n");
+    assert_eq!(dc4_run("1.2 1.002 +f"), "2.202\n");
 }
