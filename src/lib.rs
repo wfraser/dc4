@@ -108,6 +108,7 @@ pub struct DC4 {
     iradix: u32,
     oradix: u32,
     input_num: Option<BigInt>,
+    input_shift_digits: Option<u32>,
     input_str: String,
     bracket_level: u32,
     negative: bool,
@@ -151,7 +152,8 @@ impl DC4 {
             scale: 0,
             iradix: 10,
             oradix: 10,
-            input_num: Option::None,
+            input_num: None,
+            input_shift_digits: None,
             input_str: String::new(),
             bracket_level: 0,
             negative: false,    // for number entry
@@ -510,18 +512,48 @@ impl DC4 {
                 + BigInt::from(c.to_digit(16).unwrap())
                 );
 
+            if let Some(mut shift) = self.input_shift_digits.as_mut() {
+                *shift += 1;
+            }
+
             //println!("digit: {:?}", self.input_num.as_ref().unwrap());
 
             return DCResult::Continue;
         }
+
+        if c == '.' && self.input_shift_digits.is_none() {
+            self.input_shift_digits = Some(0); // start shifting
+            return DCResult::Continue;
+        }
+        // if c is '.' and the shift has already been specified, then fall through to the block
+        // below and push the current number; then set the shift again and keep reading the next
+        // number.
 
         if let Some(mut n) = self.input_num.take() {
             //println!("pushing: {:?}", n);
             if self.negative {
                 n = n * BigInt::from(-1);
             }
-            //TODO: set the shift correctly
-            self.stack.push(DCValue::Num(BigReal::from(n)));
+            let mut real = BigReal::from(n);
+            if let Some(shift) = self.input_shift_digits {
+                if self.iradix == 10 {
+                    // shortcut: shift is a number of decimal digits. The input was given in
+                    // decimal, so just set the shift directly.
+                    real.set_shift(shift);
+                } else {
+                    // Otherwise, we have to repeatedly divide by iradix to get the right value.
+                    // NOTE: the value 'shift' is the number of digits of input in whatever base
+                    // iradix is. BigReal will interpret this as being decimal digits. THIS GOOFY
+                    // NONSENSE IS WHAT dc ACTUALLY DOES. It can result in truncation of the input
+                    // unless it had extra trailing zeroes on it. (try: "16i 1.F p" to see)
+                    let divisor = BigReal::from(self.iradix);
+                    for _ in 0..shift {
+                        real = real.div(&divisor, shift);
+                    }
+                }
+                self.input_shift_digits = None;
+            }
+            self.stack.push(DCValue::Num(real));
             self.negative = false;
         }
         else if self.negative {
@@ -533,6 +565,8 @@ impl DC4 {
             ' '|'\t'|'\r'|'\n' => (), // ignore whitespace
 
             '!' => { self.invert = true; },
+
+            '.' => { self.input_shift_digits = Some(0); },
 
             's'|'l'|'S'|'L'|'>'|'<'|'='|':'|';' => {}, // then handled above next time around.
 

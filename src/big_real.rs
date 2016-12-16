@@ -36,6 +36,10 @@ impl BigReal {
         result
     }
 
+    pub fn set_shift(&mut self, shift: u32) {
+        self.shift = shift;
+    }
+
     pub fn to_str_radix(&self, radix: u32) -> String {
         if self.shift == 0 {
             self.value.to_str_radix(radix)
@@ -58,7 +62,7 @@ impl BigReal {
         }
         else {
             // For non-decimal, the whole part is fine, but the string representation of the
-            // fractional part needds to be computed manually using long division.
+            // fractional part needs to be computed manually using long division.
 
             let whole = self.change_shift(0);
             let mut string_result = if whole.value.is_zero() {

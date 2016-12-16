@@ -271,3 +271,18 @@ fn test_frac_output() {
 fn test_small_print() {
     assert_eq!(dc4_run("5k 50 3 %f"), ".00002\n");
 }
+
+#[test]
+fn test_decimal() {
+    assert_eq!(dc4_run("12.345 f"), "12.345\n");
+    assert_eq!(dc4_run("12. f"), "12\n");
+    assert_eq!(dc4_run("12.34.56 f"), ".56\n12.34\n");
+
+    // A dc number's precision is the number of digits it has, which is then interpreted as
+    // specifying *decimal* digits, no matter what the input radix is. So you get weird stuff like:
+    assert_eq!(dc4_run("16i 1.F f"), "1.9\n");
+    assert_eq!(dc4_run("16i 1.F0 f"), "1.93\n");
+    assert_eq!(dc4_run("16i 1.F00 f"), "1.937\n");
+    assert_eq!(dc4_run("16i 1.F000 f"), "1.9375\n");
+    assert_eq!(dc4_run("16i 1.F0000 f"), "1.93750\n");
+}
