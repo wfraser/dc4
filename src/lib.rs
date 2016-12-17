@@ -13,10 +13,11 @@ use std::rc::Rc;
 extern crate num;
 use num::traits::{ToPrimitive, Zero, One};
 use num::BigInt;
-use num::iter::range;
 
 mod big_real;
 use big_real::BigReal;
+
+const MAX_REGISTER: usize = 255;
 
 #[derive(Clone, Debug)]
 enum DCValue {
@@ -124,18 +125,63 @@ pub enum DCResult {
     Recursion(String),
 }
 
-fn loop_over_stream<S, F>(s: &mut S, mut f: F) -> DCResult
-        where S: Read, F: FnMut(char) -> DCResult {
-    // TODO: change this to s.chars() once Read::chars is stable
-    for maybe_char in s.bytes() {
-        match maybe_char {
-            Ok(c)       => {
+fn read_byte<R: Read>(r: &mut R) -> Result<Option<u8>, std::io::Error> {
+    let mut buf = [0u8; 1];
+    let n = r.read(&mut buf)?;
+    if n == 0 {
+        Ok(None)
+    } else {
+        Ok(Some(buf[0]))
+    }
+}
+
+fn read_char<R: Read>(r: &mut R) -> Result<Option<char>, Box<std::error::Error>> {
+    let first_byte: u8 = match read_byte(r)? {
+        Some(byte) => byte,
+        None => {
+            return Ok(None);
+        }
+    };
+    if first_byte < 0b10000000 {
+        Ok(Some(first_byte as char))
+    } else {
+        let nbytes = if first_byte & 0b1110_0000 == 0b1100_0000 {
+            1
+        } else if first_byte & 0b1111_0000 == 0b1110_0000 {
+            2
+        } else if first_byte & 0b1111_1000 == 0b1111_0000 {
+            3
+        } else {
+            // Illegal leading byte for UTF-8. Don't read any continuation bytes; just let
+            // str::from_utf8 return an error.
+            0
+        };
+        let mut bytes = Vec::with_capacity(nbytes + 1);
+        bytes.push(first_byte);
+        for _ in 0..nbytes {
+            match read_byte(r)? {
+                Some(byte) => bytes.push(byte),
+                None => break
+            }
+        }
+        let s = std::str::from_utf8(&bytes)?;
+        Ok(Some(s.chars().next().unwrap()))
+    }
+}
+
+fn loop_over_stream<R, F>(input: &mut R, mut f: F) -> DCResult
+        where R: Read, F: FnMut(char) -> DCResult {
+    // TODO: change this to use input.chars() once Read::chars is stable
+    loop {
+        match read_char(input) {
+            Ok(Some(c)) => {
                 match f(c as char) {
                     DCResult::Continue => (), // next loop iteration
                     other              => return other
                 }
             },
-            Err(err)    => {
+            Ok(None) => break,
+            Err(err) => {
                 panic!("Error reading from input: {}", err);
             }
         }
@@ -148,7 +194,7 @@ impl DC4 {
         let mut value = DC4 {
             program_name: program_name,
             stack: Vec::new(),
-            registers: Vec::with_capacity(256),
+            registers: Vec::with_capacity(MAX_REGISTER + 1),
             scale: 0,
             iradix: 10,
             oradix: 10,
@@ -160,7 +206,7 @@ impl DC4 {
             invert: false,      // for conditional macro execution
             prev_char: '\0',
         };
-        for _ in range(0, 256) {
+        for _ in 0 .. MAX_REGISTER + 1 {
             value.registers.push(DCRegisterStack::new());
         }
         value
