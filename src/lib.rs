@@ -145,43 +145,37 @@ impl DC4 {
         }
     }
 
-    fn get_two_ints<W>(&mut self, w: &mut W) -> Option<(&BigReal, &BigReal)> where W: Write {
+    fn get_two_ints(&mut self) -> Result<(&BigReal, &BigReal), String> {
         let a: &BigReal;
         let b: &BigReal;
 
         let len = self.stack.len();
         if len < 2 {
-            self.error(w, format_args!("stack empty"));
-            return None;
+            return Err(format!("stack empty"));
         }
 
         match self.stack[len - 2] {
             DCValue::Num(ref n) => { a = &n; },
             _ => {
-                self.error(w, format_args!("non-numeric value"));
-                return None;
+                return Err(format!("non-numeric value"));
             }
         }
         match self.stack[len - 1] {
             DCValue::Num(ref n) => { b = &n; },
             _ => {
-                self.error(w, format_args!("non-numeric value"));
-                return None;
+                return Err(format!("non-numeric value"));
             }
         }
-        Some((a, b))
+        Ok((a, b))
     }
 
-    fn binary_operator<W, F>(&mut self, w: &mut W, mut f: F)
-            where W: Write,
-            F: FnMut(&BigReal, &BigReal) -> Result<Option<DCValue>, String> {
+    fn binary_operator<F>(&mut self, mut f: F) -> Result<(), String>
+            where F: FnMut(&BigReal, &BigReal) -> Result<Option<DCValue>, String> {
 
-        let result: Result<Option<DCValue>, String>;
-
-        match self.get_two_ints(w) {
-            Some((a, b)) => { result = f(a, b); },
-            None => return,
-        }
+        let result: Result<Option<DCValue>, String> = {
+            let (a, b) = self.get_two_ints()?;
+            f(a, b)
+        };
 
         match result {
             Ok(r) => {
@@ -191,23 +185,21 @@ impl DC4 {
                     Some(value) => { self.stack.push(value); },
                     _ => {},
                 }
+                Ok(())
             },
             Err(message) => {
-                self.error(w, format_args!("{}", message));
+                Err(message)
             }
         }
     }
 
-    fn binary_operator2<W, F>(&mut self, w: &mut W, mut f: F)
-            where W: Write,
-            F: FnMut(&BigReal, &BigReal) -> Result<Vec<DCValue>, String> {
+    fn binary_operator2<F>(&mut self, mut f: F) -> Result<(), String>
+            where F: FnMut(&BigReal, &BigReal) -> Result<Vec<DCValue>, String> {
 
-        let maybe_results: Result<Vec<DCValue>, String>;
-
-        match self.get_two_ints(w) {
-            Some((a, b)) => { maybe_results = f(a, b); },
-            None => return,
-        }
+        let maybe_results: Result<Vec<DCValue>, String> = {
+            let (a, b) = self.get_two_ints()?;
+            f(a, b)
+        };
 
         match maybe_results {
             Ok(results) => {
@@ -216,25 +208,25 @@ impl DC4 {
                 for result in results {
                     self.stack.push(result);
                 }
+                Ok(())
             },
             Err(msg) => {
-                self.error(w, format_args!("{}", msg));
+                Err(msg)
             }
         }
     }
 
-    fn binary_predicate<W, F>(&mut self, w: &mut W, f: F) -> bool
-            where W: Write,
-            F: Fn(&BigReal, &BigReal) -> Result<bool, String> {
+    fn binary_predicate<F>(&mut self, f: F) -> Result<bool, String>
+            where F: Fn(&BigReal, &BigReal) -> Result<bool, String> {
 
         let mut result = false;
-        self.binary_operator(w, |a, b| {
+        self.binary_operator(|a, b| {
             f(a, b).map(|v| {
                 result = v;
                 None
             })
-        });
-        result
+        })?;
+        Ok(result)
     }
 
     fn pop_stack<W>(&mut self, w: &mut W) -> Option<DCValue> where W: Write {
@@ -394,15 +386,15 @@ impl DC4 {
                 None => self.error(w, format_args!("stack register '{}' (0{:o}) is empty", c, c as usize)),
             },
 
-            '<' => if self.binary_predicate(w, move |a, b| Ok(invert != (b < a))) {
+            '<' => if self.binary_predicate(move |a, b| Ok(invert != (b < a)))? {
                 return_early = Some(self.run_macro_reg(w, c)?);
             },
 
-            '>' => if self.binary_predicate(w, move |a, b| Ok(invert != (b > a))) {
+            '>' => if self.binary_predicate(move |a, b| Ok(invert != (b > a)))? {
                 return_early = Some(self.run_macro_reg(w, c)?);
             },
 
-            '=' => if self.binary_predicate(w, move |a, b| Ok(invert != (b == a))) {
+            '=' => if self.binary_predicate(move |a, b| Ok(invert != (b == a)))? {
                 return_early = Some(self.run_macro_reg(w, c)?);
             },
 
@@ -653,38 +645,38 @@ impl DC4 {
                 None         => ()
             },
 
-            '+' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a + b)))),
-            '-' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a - b)))),
-            '*' => self.binary_operator(w, |a, b| Ok(Some(DCValue::Num(a * b)))),
+            '+' => self.binary_operator(|a, b| Ok(Some(DCValue::Num(a + b))))?,
+            '-' => self.binary_operator(|a, b| Ok(Some(DCValue::Num(a - b))))?,
+            '*' => self.binary_operator(|a, b| Ok(Some(DCValue::Num(a * b))))?,
             '/' => {
                 let scale = self.scale;
-                self.binary_operator(w, |a, b| {
+                self.binary_operator(|a, b| {
                     if b.is_zero() {
                         Err(format!("divide by zero"))
                     }
                     else {
                         Ok(Some(DCValue::Num(a.div(b, scale))))
                     }
-                });
+                })?
             },
 
             // remainder
             '%' => {
                 let scale = self.scale;
-                self.binary_operator(w, |a, b| {
+                self.binary_operator(|a, b| {
                     if b.is_zero() {
                         Err(format!("divide by zero"))
                     }
                     else {
                         Ok(Some(DCValue::Num(a.rem(b, scale))))
                     }
-                })
+                })?
             },
 
             // quotient and remainder
             '~' => {
                 let scale = self.scale;
-                self.binary_operator2(w, |a, b| {
+                self.binary_operator2(|a, b| {
                     if b.is_zero() {
                         Err(format!("divide by zero"))
                     }
@@ -692,11 +684,11 @@ impl DC4 {
                         let div_rem = a.div_rem(b, scale);
                         Ok(vec![ DCValue::Num(div_rem.0), DCValue::Num(div_rem.1) ])
                     }
-                })
+                })?
             },
 
             // exponentiate
-            '^' => self.binary_operator(w, |base, exponent| {
+            '^' => self.binary_operator(|base, exponent| {
                 let mut result: BigReal;
                 if exponent.is_zero() {
                     result = BigReal::one();
@@ -711,7 +703,7 @@ impl DC4 {
                     }
                 }
                 Ok(Some(DCValue::Num(result)))
-            }),
+            })?,
 
             //TODO:
             // '|': modular exponentiation
