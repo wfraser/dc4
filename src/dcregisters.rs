@@ -27,15 +27,17 @@ impl DCRegisters {
         }
     }
 
-    pub fn get(&self, c: char) -> &DCRegisterStack {
-        // TODO: bounds check and return an Option<> instead
-        self.registers.get(c as usize).unwrap()
+    pub fn get(&self, c: char) -> Result<&DCRegisterStack, String> {
+        self.registers.get(c as usize).ok_or_else(|| invalid_register_error(c))
     }
 
-    pub fn get_mut(&mut self, c: char) -> &mut DCRegisterStack {
-        // TODO: bounds check and return an Option<> instead
-        self.registers.get_mut(c as usize).unwrap()
+    pub fn get_mut(&mut self, c: char) -> Result<&mut DCRegisterStack, String> {
+        self.registers.get_mut(c as usize).ok_or_else(|| invalid_register_error(c))
     }
+}
+
+fn invalid_register_error(c: char) -> String {
+    format!("invalid register '{}' ({}); must be in range 0 - {}", c, c as usize, MAX_REGISTER)
 }
 
 pub struct DCRegisterStack {

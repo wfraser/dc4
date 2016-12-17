@@ -265,8 +265,8 @@ impl DC4 {
         }
     }
 
-    pub fn run_macro_reg<W>(&mut self, w: &mut W, c: char) -> DCResult where W: Write {
-        let macro_string = match self.registers.get(c).value() {
+    pub fn run_macro_reg<W: Write>(&mut self, w: &mut W, c: char) -> Result<DCResult, String> {
+        let macro_string = match self.registers.get(c)?.value() {
             Some(&DCValue::Str(ref string)) => Some(string.clone()),
             None => {
                 self.error(w, format_args!("register '{}' (0{:o}) is empty", c, c as usize));
@@ -274,10 +274,10 @@ impl DC4 {
             }
             _ => None
         };
-        match macro_string {
+        Ok(match macro_string {
             Some(string) => DCResult::Recursion(string),
             _ => DCResult::Continue
-        }
+        })
     }
 
     pub fn run_macro_str<W>(&mut self, w: &mut W, macro_text: String) -> DCResult where W: Write {
@@ -291,7 +291,13 @@ impl DC4 {
             let c = current_text[pos] as char;
             pos += 1;
 
-            let mut result = self.loop_iteration(c, w);
+            let mut result = match self.loop_iteration(c, w) {
+                Ok(result) => result,
+                Err(msg) => {
+                    self.error(w, format_args!("{}", msg));
+                    DCResult::Continue
+                }
+            };
 
             while let DCResult::Recursion(sub_text) = result {
                 // This loop iteration wants to call a macro.
@@ -337,12 +343,16 @@ impl DC4 {
     pub fn program<R: Read, W: Write>(&mut self, r: &mut R, w: &mut W)
             -> DCResult {
         loop_over_stream(r, |c| match self.loop_iteration(c, w) {
-            DCResult::Recursion(text) => self.run_macro_str(w, text),
-            other                     => other
+            Ok(DCResult::Recursion(text)) => self.run_macro_str(w, text),
+            Err(msg) => {
+                self.error(w, format_args!("{}", msg));
+                DCResult::Continue
+            },
+            Ok(other) => other,
         })
     }
 
-    fn loop_iteration<W: Write>(&mut self, c: char, w: &mut W) -> DCResult {
+    fn loop_iteration<W: Write>(&mut self, c: char, w: &mut W) -> Result<DCResult, String> {
         if self.bracket_level > 0 {
             if c == '[' {
                 self.bracket_level += 1;
@@ -359,7 +369,7 @@ impl DC4 {
             if self.bracket_level > 0 {
                 self.input_str.push(c);
             }
-            return DCResult::Continue;
+            return Ok(DCResult::Continue);
         }
 
         // operations that need one more character to be read:
@@ -367,33 +377,33 @@ impl DC4 {
         let invert = self.invert;
         match self.prev_char {
             's' => if let Some(value) = self.pop_stack(w) {
-                self.registers.get_mut(c).set(value);
+                self.registers.get_mut(c)?.set(value);
             },
 
-            'l' => match self.registers.get(c).value() {
+            'l' => match self.registers.get(c)?.value() {
                 Some(value) => self.stack.push(value.clone()),
                 None => self.error(w, format_args!("register '{}' (0{:o}) is empty", c, c as usize)),
             },
 
             'S' => if let Some(value) = self.pop_stack(w) {
-                self.registers.get_mut(c).push(value);
+                self.registers.get_mut(c)?.push(value);
             },
 
-            'L' => match self.registers.get_mut(c).pop() {
+            'L' => match self.registers.get_mut(c)?.pop() {
                 Some(value) => self.stack.push(value),
                 None => self.error(w, format_args!("stack register '{}' (0{:o}) is empty", c, c as usize)),
             },
 
             '<' => if self.binary_predicate(w, move |a, b| Ok(invert != (b < a))) {
-                return_early = Some(self.run_macro_reg(w, c));
+                return_early = Some(self.run_macro_reg(w, c)?);
             },
 
             '>' => if self.binary_predicate(w, move |a, b| Ok(invert != (b > a))) {
-                return_early = Some(self.run_macro_reg(w, c));
+                return_early = Some(self.run_macro_reg(w, c)?);
             },
 
             '=' => if self.binary_predicate(w, move |a, b| Ok(invert != (b == a))) {
-                return_early = Some(self.run_macro_reg(w, c));
+                return_early = Some(self.run_macro_reg(w, c)?);
             },
 
             ':' => {
@@ -439,7 +449,7 @@ impl DC4 {
                         self.error(w, format_args!("array index must be a nonnegative integer"))
                     }
                     else {
-                        self.registers.get_mut(c).array_store(key.unwrap(), value);
+                        self.registers.get_mut(c)?.array_store(key.unwrap(), value);
                     }
                 }
             },
@@ -447,7 +457,7 @@ impl DC4 {
             // this command also pops the value regardless of whether it's the correc type.
             ';' => match self.stack.pop() {
                 Some(DCValue::Num(ref index)) if !index.is_negative() => {
-                    let ref value = *self.registers.get(c).array_load(&index);
+                    let ref value = *self.registers.get(c)?.array_load(&index);
                     self.stack.push(value.clone());
                 },
                 Some(_) => self.error(w, format_args!("array index must be a nonnegative integer")),
@@ -463,7 +473,7 @@ impl DC4 {
 
         if let Some(other) = return_early {
             self.prev_char = '\0';
-            return other;
+            return Ok(other);
         }
 
         if (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') {
@@ -483,12 +493,12 @@ impl DC4 {
 
             //println!("digit: {:?}", self.input_num.as_ref().unwrap());
 
-            return DCResult::Continue;
+            return Ok(DCResult::Continue);
         }
 
         if c == '.' && self.input_shift_digits.is_none() {
             self.input_shift_digits = Some(0); // start shifting
-            return DCResult::Continue;
+            return Ok(DCResult::Continue);
         }
         // if c is '.' and the shift has already been specified, then fall through to the block
         // below and push the current number; then set the shift again and keep reading the next
@@ -639,7 +649,7 @@ impl DC4 {
 
             // pop top and execute as macro
             'x' => match self.pop_string(w).and_then(|string| Some(DCResult::Recursion(string))) {
-                Some(result) => return result,
+                Some(result) => return Ok(result),
                 None         => ()
             },
 
@@ -714,20 +724,20 @@ impl DC4 {
 
             'Q' => match self.stack.pop() {
                 Some(DCValue::Num(ref n)) if n.is_positive() => {
-                    return DCResult::QuitLevels(n.to_u32().unwrap());
+                    return Ok(DCResult::QuitLevels(n.to_u32().unwrap()));
                 },
                 Some(_) => self.error(w, format_args!("Q command requires a number >= 1")),
                 None => self.error(w, format_args!("stack empty"))
             },
 
-            'q' => return DCResult::Terminate(2),
+            'q' => return Ok(DCResult::Terminate(2)),
 
             // catch-all for unhandled characters
             _ => self.error(w, format_args!("{:?} (0{:o}) unimplemented", c, c as u32))
         }
         self.prev_char = c;
 
-        DCResult::Continue
+        Ok(DCResult::Continue)
     }
 
     fn error<W>(&self, w: &mut W, args: fmt::Arguments) where W: Write {
