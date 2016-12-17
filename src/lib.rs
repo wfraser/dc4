@@ -5,10 +5,8 @@
 //
 
 use std::io::{Read, Write};
-use std::collections::HashMap;
 use std::fmt;
 use std::mem;
-use std::rc::Rc;
 
 extern crate num;
 use num::traits::{ToPrimitive, Zero, One};
@@ -17,94 +15,13 @@ use num::BigInt;
 mod big_real;
 use big_real::BigReal;
 
-const MAX_REGISTER: usize = 255;
-
-#[derive(Clone, Debug)]
-enum DCValue {
-    Str(String),
-    Num(BigReal)
-}
-
-struct DCRegister {
-    main_value: Option<DCValue>,
-    map: HashMap<BigReal, Rc<DCValue>>,
-}
-
-impl DCRegister {
-    pub fn new(value: Option<DCValue>) -> DCRegister {
-        DCRegister {
-            main_value: value,
-            map: HashMap::new(),
-        }
-    }
-
-    pub fn map_lookup(&self, key: &BigReal) -> Option<&Rc<DCValue>> {
-        self.map.get(key)
-    }
-
-    pub fn map_insert(&mut self, key: BigReal, value: DCValue) {
-        self.map.insert(key, Rc::new(value));
-    }
-}
-
-struct DCRegisterStack {
-    stack: Vec<DCRegister>,
-}
-
-impl DCRegisterStack {
-    pub fn new() -> DCRegisterStack {
-        DCRegisterStack {
-            stack: Vec::new()
-        }
-    }
-
-    pub fn value(&self) -> Option<&DCValue> {
-        match self.stack.last() {
-            Some(reg) => match reg.main_value {
-                Some(ref value) => Some(value),
-                None        => None,
-            },
-            None      => None,
-        }
-    }
-
-    pub fn array_store(&mut self, key: BigReal, value: DCValue) {
-        if self.stack.is_empty() {
-            self.stack.push(DCRegister::new(None));
-        }
-        self.stack.last_mut().unwrap().map_insert(key, value);
-    }
-
-    pub fn array_load(&self, key: &BigReal) -> Rc<DCValue> {
-        match self.stack.last() {
-            Some(reg) => match reg.map_lookup(key) {
-                Some(value) => value.clone(),
-                None        => Rc::new(DCValue::Num(BigReal::zero()))
-            },
-            None      => Rc::new(DCValue::Num(BigReal::zero()))
-        }
-    }
-
-    pub fn set(&mut self, value: DCValue) {
-        if !self.stack.is_empty() {
-            self.stack.pop();
-        }
-        self.stack.push(DCRegister::new(Some(value)));
-    }
-
-    pub fn pop(&mut self) -> Option<DCValue> {
-        self.stack.pop().and_then(|v| v.main_value)
-    }
-
-    pub fn push(&mut self, value: DCValue) {
-        self.stack.push(DCRegister::new(Some(value)))
-    }
-}
+mod dcregisters;
+use dcregisters::DCRegisters;
 
 pub struct DC4 {
     program_name: String,
     stack: Vec<DCValue>,
-    registers: Vec<DCRegisterStack>,
+    registers: DCRegisters,
     scale: u32,
     iradix: u32,
     oradix: u32,
@@ -115,6 +32,12 @@ pub struct DC4 {
     negative: bool,
     invert: bool,
     prev_char: char,
+}
+
+#[derive(Clone, Debug)]
+pub enum DCValue {
+    Str(String),
+    Num(BigReal)
 }
 
 #[derive(Debug)]
@@ -191,10 +114,10 @@ fn loop_over_stream<R, F>(input: &mut R, mut f: F) -> DCResult
 
 impl DC4 {
     pub fn new(program_name: String) -> DC4 {
-        let mut value = DC4 {
+        DC4 {
             program_name: program_name,
             stack: Vec::new(),
-            registers: Vec::with_capacity(MAX_REGISTER + 1),
+            registers: DCRegisters::new(),
             scale: 0,
             iradix: 10,
             oradix: 10,
@@ -205,11 +128,7 @@ impl DC4 {
             negative: false,    // for number entry
             invert: false,      // for conditional macro execution
             prev_char: '\0',
-        };
-        for _ in 0 .. MAX_REGISTER + 1 {
-            value.registers.push(DCRegisterStack::new());
         }
-        value
     }
 
     fn print_elem<W>(&self, elem: &DCValue, w: &mut W) where W: Write {
@@ -347,7 +266,7 @@ impl DC4 {
     }
 
     pub fn run_macro_reg<W>(&mut self, w: &mut W, c: char) -> DCResult where W: Write {
-        let macro_string = match self.registers[c as usize].value() {
+        let macro_string = match self.registers.get(c).value() {
             Some(&DCValue::Str(ref string)) => Some(string.clone()),
             None => {
                 self.error(w, format_args!("register '{}' (0{:o}) is empty", c, c as usize));
@@ -448,19 +367,19 @@ impl DC4 {
         let invert = self.invert;
         match self.prev_char {
             's' => if let Some(value) = self.pop_stack(w) {
-                self.registers[c as usize].set(value);
+                self.registers.get_mut(c).set(value);
             },
 
-            'l' => match self.registers[c as usize].value() {
+            'l' => match self.registers.get(c).value() {
                 Some(value) => self.stack.push(value.clone()),
                 None => self.error(w, format_args!("register '{}' (0{:o}) is empty", c, c as usize)),
             },
 
             'S' => if let Some(value) = self.pop_stack(w) {
-                self.registers[c as usize].push(value);
+                self.registers.get_mut(c).push(value);
             },
 
-            'L' => match self.registers[c as usize].pop() {
+            'L' => match self.registers.get_mut(c).pop() {
                 Some(value) => self.stack.push(value),
                 None => self.error(w, format_args!("stack register '{}' (0{:o}) is empty", c, c as usize)),
             },
@@ -520,7 +439,7 @@ impl DC4 {
                         self.error(w, format_args!("array index must be a nonnegative integer"))
                     }
                     else {
-                        self.registers[c as usize].array_store(key.unwrap(), value);
+                        self.registers.get_mut(c).array_store(key.unwrap(), value);
                     }
                 }
             },
@@ -528,7 +447,7 @@ impl DC4 {
             // this command also pops the value regardless of whether it's the correc type.
             ';' => match self.stack.pop() {
                 Some(DCValue::Num(ref index)) if !index.is_negative() => {
-                    let ref value = *self.registers[c as usize].array_load(&index);
+                    let ref value = *self.registers.get(c).array_load(&index);
                     self.stack.push(value.clone());
                 },
                 Some(_) => self.error(w, format_args!("array index must be a nonnegative integer")),
