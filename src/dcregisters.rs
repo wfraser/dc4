@@ -1,3 +1,9 @@
+//
+// dc4 registers
+//
+// Copyright (c) 2015-2016 by William R. Fraser
+//
+
 use std::collections::HashMap;
 use std::rc::Rc;
 use num::traits::Zero;
