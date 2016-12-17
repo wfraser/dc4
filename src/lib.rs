@@ -58,8 +58,8 @@ fn read_byte<R: Read>(r: &mut R) -> Result<Option<u8>, std::io::Error> {
     }
 }
 
-fn read_char<R: Read>(r: &mut R) -> Result<Option<char>, Box<std::error::Error>> {
-    let first_byte: u8 = match read_byte(r)? {
+fn read_char<R: Read>(r: &mut R) -> Result<Option<char>, String> {
+    let first_byte: u8 = match read_byte(r).map_err(|e| format!("I/O error: {}", e))? {
         Some(byte) => byte,
         None => {
             return Ok(None);
@@ -82,17 +82,22 @@ fn read_char<R: Read>(r: &mut R) -> Result<Option<char>, Box<std::error::Error>>
         let mut bytes = Vec::with_capacity(nbytes + 1);
         bytes.push(first_byte);
         for _ in 0..nbytes {
-            match read_byte(r)? {
+            match read_byte(r).map_err(|e| format!("I/O error: {}", e))? {
                 Some(byte) => bytes.push(byte),
                 None => break
             }
         }
-        let s = std::str::from_utf8(&bytes)?;
+        let s = match std::str::from_utf8(&bytes) {
+            Ok(s) => s,
+            Err(_) => {
+                return Err(format!("unable to parse {:?} as UTF-8", bytes));
+            }
+        };
         Ok(Some(s.chars().next().unwrap()))
     }
 }
 
-fn loop_over_stream<R, F>(input: &mut R, mut f: F) -> DCResult
+fn loop_over_stream<R, F>(input: &mut R, mut f: F) -> Result<DCResult, String>
         where R: Read, F: FnMut(char) -> DCResult {
     // TODO: change this to use input.chars() once Read::chars is stable
     loop {
@@ -100,16 +105,16 @@ fn loop_over_stream<R, F>(input: &mut R, mut f: F) -> DCResult
             Ok(Some(c)) => {
                 match f(c as char) {
                     DCResult::Continue => (), // next loop iteration
-                    other              => return other
+                    other              => return Ok(other)
                 }
             },
             Ok(None) => break,
             Err(err) => {
-                panic!("Error reading from input: {}", err);
+                return Err(format!("error reading from input: {}", err));
             }
         }
     }
-    DCResult::Continue
+    Ok(DCResult::Continue)
 }
 
 // Acts like a try block by running code in a closure.
@@ -242,24 +247,21 @@ impl DC4 {
         self.stack.pop().ok_or_else(|| format!("stack empty"))
     }
 
-    fn pop_string<W>(&mut self, w: &mut W) -> Option<String> where W: Write {
+    fn pop_string(&mut self) -> Result<Option<String>, String> {
         let correct_type = match self.stack.last() {
             Some(&DCValue::Str(_)) => true,
-            None => {
-                self.error(w, format_args!("stack empty"));
-                false
-            }
+            None => return Err(format!("stack empty")),
             _ => false
         };
 
         if correct_type {
             match self.stack.pop() {
-                Some(DCValue::Str(string)) => Some(string),
+                Some(DCValue::Str(string)) => Ok(Some(string)),
                 _ => unreachable!()
             }
         }
         else {
-            None
+            Ok(None)
         }
     }
 
@@ -349,10 +351,9 @@ impl DC4 {
         DCResult::Continue
     }
 
-    pub fn program<R: Read, W: Write>(&mut self, r: &mut R, w: &mut W)
-            -> DCResult {
+    pub fn program<R: Read, W: Write>(&mut self, r: &mut R, w: &mut W) -> DCResult {
         //let mut current_text = String::new();
-        loop_over_stream(r, |c| {
+        match loop_over_stream(r, |c| {
             //current_text.push(c);
             match self.loop_iteration(c, w) {
                 Ok(DCResult::Recursion(text)) => self.run_macro_str(w, text),
@@ -363,7 +364,13 @@ impl DC4 {
                 },
                 Ok(other) => other,
             }
-        })
+        }) {
+            Ok(result) => result,
+            Err(msg) => {
+                self.error(w, format_args!("{}", msg));
+                DCResult::Terminate(0)
+            }
+        }
     }
 
     fn loop_iteration<W: Write>(&mut self, c: char, w: &mut W) -> Result<DCResult, String> {
@@ -648,9 +655,9 @@ impl DC4 {
             'K' => self.stack.push(DCValue::Num(BigReal::from(self.scale))),
 
             // pop top and execute as macro
-            'x' => match self.pop_string(w).and_then(|string| Some(DCResult::Recursion(string))) {
-                Some(result) => return Ok(result),
-                None         => ()
+            'x' => match self.pop_string()? {
+                Some(string) => return Ok(DCResult::Recursion(string)),
+                None => (),
             },
 
             '+' => self.binary_operator(|a, b| Ok(Some(DCValue::Num(a + b))))?,
