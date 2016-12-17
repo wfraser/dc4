@@ -112,6 +112,15 @@ fn loop_over_stream<R, F>(input: &mut R, mut f: F) -> DCResult
     DCResult::Continue
 }
 
+// Acts like a try block by running code in a closure.
+macro_rules! capture_errors {
+    ($block:block) => {
+        (|| {
+            Ok($block)
+        })()
+    }
+}
+
 impl DC4 {
     pub fn new(program_name: String) -> DC4 {
         DC4 {
@@ -229,11 +238,8 @@ impl DC4 {
         Ok(result)
     }
 
-    fn pop_stack<W>(&mut self, w: &mut W) -> Option<DCValue> where W: Write {
-        self.stack.pop().or_else(|| {
-            self.error(w, format_args!("stack empty"));
-            None
-        })
+    fn pop_stack(&mut self) -> Result<DCValue, String> {
+        self.stack.pop().ok_or_else(|| format!("stack empty"))
     }
 
     fn pop_string<W>(&mut self, w: &mut W) -> Option<String> where W: Write {
@@ -257,13 +263,10 @@ impl DC4 {
         }
     }
 
-    pub fn run_macro_reg<W: Write>(&mut self, w: &mut W, c: char) -> Result<DCResult, String> {
+    pub fn run_macro_reg(&mut self, c: char) -> Result<DCResult, String> {
         let macro_string = match self.registers.get(c)?.value() {
             Some(&DCValue::Str(ref string)) => Some(string.clone()),
-            None => {
-                self.error(w, format_args!("register '{}' (0{:o}) is empty", c, c as usize));
-                None
-            }
+            None => return Err(format!("register '{}' (0{:o}) is empty", c, c as usize)),
             _ => None
         };
         Ok(match macro_string {
@@ -272,7 +275,7 @@ impl DC4 {
         })
     }
 
-    pub fn run_macro_str<W>(&mut self, w: &mut W, macro_text: String) -> DCResult where W: Write {
+    pub fn run_macro_str<W: Write>(&mut self, w: &mut W, macro_text: String) -> DCResult {
         self.prev_char = '\0';
 
         let mut current_text = macro_text.into_bytes();
@@ -286,6 +289,20 @@ impl DC4 {
             let mut result = match self.loop_iteration(c, w) {
                 Ok(result) => result,
                 Err(msg) => {
+                    /*
+                    for byte in &current_text {
+                        print!("{}", *byte as char);
+                    }
+                    println!("");
+                    for _ in 0 .. pos - 1 {
+                        print!(" ");
+                    }
+                    print!("^");
+                    for _ in pos .. len {
+                        print!(" ");
+                    }
+                    println!("");
+                    */
                     self.error(w, format_args!("{}", msg));
                     DCResult::Continue
                 }
@@ -334,13 +351,18 @@ impl DC4 {
 
     pub fn program<R: Read, W: Write>(&mut self, r: &mut R, w: &mut W)
             -> DCResult {
-        loop_over_stream(r, |c| match self.loop_iteration(c, w) {
-            Ok(DCResult::Recursion(text)) => self.run_macro_str(w, text),
-            Err(msg) => {
-                self.error(w, format_args!("{}", msg));
-                DCResult::Continue
-            },
-            Ok(other) => other,
+        //let mut current_text = String::new();
+        loop_over_stream(r, |c| {
+            //current_text.push(c);
+            match self.loop_iteration(c, w) {
+                Ok(DCResult::Recursion(text)) => self.run_macro_str(w, text),
+                Err(msg) => {
+                    //println!("at \"{}\"", current_text);
+                    self.error(w, format_args!("{}", msg));
+                    DCResult::Continue
+                },
+                Ok(other) => other,
+            }
         })
     }
 
@@ -367,62 +389,46 @@ impl DC4 {
         // operations that need one more character to be read:
         let mut return_early: Option<DCResult> = Some(DCResult::Continue);
         let invert = self.invert;
-        match self.prev_char {
-            's' => if let Some(value) = self.pop_stack(w) {
+        let ok = capture_errors!({ match self.prev_char {
+            's' => {
+                let value = self.pop_stack()?;
                 self.registers.get_mut(c)?.set(value);
             },
 
             'l' => match self.registers.get(c)?.value() {
                 Some(value) => self.stack.push(value.clone()),
-                None => self.error(w, format_args!("register '{}' (0{:o}) is empty", c, c as usize)),
+                None => return Err(format!("register '{}' (0{:o}) is empty", c, c as usize)),
             },
 
-            'S' => if let Some(value) = self.pop_stack(w) {
+            'S' => {
+                let value = self.pop_stack()?;
                 self.registers.get_mut(c)?.push(value);
             },
 
             'L' => match self.registers.get_mut(c)?.pop() {
                 Some(value) => self.stack.push(value),
-                None => self.error(w, format_args!("stack register '{}' (0{:o}) is empty", c, c as usize)),
+                None => return Err(format!("stack register '{}' (0{:o}) is empty", c, c as usize)),
             },
 
             '<' => if self.binary_predicate(move |a, b| Ok(invert != (b < a)))? {
-                return_early = Some(self.run_macro_reg(w, c)?);
+                return_early = Some(self.run_macro_reg(c)?);
             },
 
             '>' => if self.binary_predicate(move |a, b| Ok(invert != (b > a)))? {
-                return_early = Some(self.run_macro_reg(w, c)?);
+                return_early = Some(self.run_macro_reg(c)?);
             },
 
             '=' => if self.binary_predicate(move |a, b| Ok(invert != (b == a)))? {
-                return_early = Some(self.run_macro_reg(w, c)?);
+                return_early = Some(self.run_macro_reg(c)?);
             },
 
             ':' => {
                 if self.stack.len() < 2 {
-                    self.error(w, format_args!("stack empty"));
+                    return Err(format!("stack empty"));
                 }
                 else {
                     // this command pops the values regardless of whether the types are correct,
                     // unlike most other commands in dc.
-                    /*
-                    let type_match = match self.stack.last().unwrap() {
-                        &DCValue::Num(ref n) => !n.is_negative(),
-                        _                    => false
-                    };
-                    if type_match {
-                        match self.stack.pop().unwrap() {
-                            DCValue::Num(key) => {
-                                let value = self.stack.pop().unwrap();
-                                self.registers[c as usize].array_store(key, value);
-                            },
-                            _ => unreachable!()
-                        }
-                    }
-                    else {
-                        self.error(w, format_args!("array index must be a nonnegative integer"));
-                    }
-                    */
                     let key_dcvalue = self.stack.pop().unwrap();
                     let value = self.stack.pop().unwrap();
 
@@ -438,7 +444,7 @@ impl DC4 {
                         _ => None
                     };
                     if key.is_none() {
-                        self.error(w, format_args!("array index must be a nonnegative integer"))
+                        return Err(format!("array index must be a nonnegative integer"))
                     }
                     else {
                         self.registers.get_mut(c)?.array_store(key.unwrap(), value);
@@ -446,18 +452,18 @@ impl DC4 {
                 }
             },
 
-            // this command also pops the value regardless of whether it's the correc type.
+            // this command also pops the value regardless of whether it's the correct type.
             ';' => match self.stack.pop() {
                 Some(DCValue::Num(ref index)) if !index.is_negative() => {
                     let ref value = *self.registers.get(c)?.array_load(&index);
                     self.stack.push(value.clone());
                 },
-                Some(_) => self.error(w, format_args!("array index must be a nonnegative integer")),
-                None => self.error(w, format_args!("stack empty")),
+                Some(_) => return Err(format!("array index must be a nonnegative integer")),
+                None => return Err(format!("stack empty")),
             },
 
             _ => { return_early = None; }
-        };
+        }});
 
         if self.prev_char != '!' {
             self.invert = false;
@@ -465,8 +471,10 @@ impl DC4 {
 
         if let Some(other) = return_early {
             self.prev_char = '\0';
+            ok?;
             return Ok(other);
         }
+        ok?;
 
         if (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') {
             if self.input_num.is_none() {
@@ -551,12 +559,12 @@ impl DC4 {
                     self.print_elem(elem, w);
                     write!(w, "\n").unwrap();
                 },
-                None => self.error(w, format_args!("stack empty")),
+                None => return Err(format!("stack empty")),
             },
 
             'n' => match self.stack.pop() {
                 Some(elem) => self.print_elem(&elem, w),
-                None => self.error(w, format_args!("stack empty")),
+                None => return Err(format!("stack empty")),
             },
 
             'P' => match self.stack.pop() {
@@ -570,7 +578,7 @@ impl DC4 {
                         int = div_rem.0;
                     }
                 },
-                None => { self.error(w, format_args!("stack empty")); },
+                None => return Err(format!("stack empty")),
             },
 
             'c' => self.stack.clear(),
@@ -584,7 +592,7 @@ impl DC4 {
                 self.stack.push(b);
             }
             else {
-                self.error(w, format_args!("stack empty"));
+                return Err(format!("stack empty"));
             },
 
             'i' => match self.stack.pop() {
@@ -593,11 +601,11 @@ impl DC4 {
                         Some(radix) if radix >= 2 && radix <= 16 => {
                              self.iradix = radix;
                         },
-                        _ => self.error(w, format_args!("input base must be a number between 2 and 16 (inclusive)")),
+                        _ => return Err(format!("input base must be a number between 2 and 16 (inclusive)")),
                     },
                 Some(DCValue::Str(_)) =>
-                    self.error(w, format_args!("input base must be a number between 2 and 16 (inclusive)")),
-                None => self.error(w, format_args!("stack empty")),
+                    return Err(format!("input base must be a number between 2 and 16 (inclusive)")),
+                None => return Err(format!("stack empty")),
             },
 
             'o' => match self.stack.pop() {
@@ -606,16 +614,16 @@ impl DC4 {
                         Some(radix) if radix >= 2 => {
                             self.oradix = radix;
                         },
-                        Some(_) => self.error(w, format_args!("output base must be a number greater than 1")),
+                        Some(_) => return Err(format!("output base must be a number greater than 1")),
                         _ => if let Some(_) = n.to_i32() {
-                                self.error(w, format_args!("output base must be a number greater than 1"));
+                                return Err(format!("output base must be a number greater than 1"));
                             } else {
-                                self.error(w, format_args!("error interpreting output base (overflow?)"));
+                                return Err(format!("error interpreting output base (overflow?)"));
                             },
                     },
                 Some(DCValue::Str(_)) =>
-                    self.error(w, format_args!("output base must be a number greater than 1")),
-                None => self.error(w, format_args!("stack empty")),
+                    return Err(format!("output base must be a number greater than 1")),
+                None => return Err(format!("stack empty")),
             },
 
             'k' => match self.stack.pop() {
@@ -625,14 +633,14 @@ impl DC4 {
                             self.scale = scale;
                         },
                         _ => if let Some(_) = n.to_i32() {
-                                self.error(w, format_args!("scale must be a nonnegative number"));
+                                return Err(format!("scale must be a nonnegative number"));
                             }
                             else {
-                                self.error(w, format_args!("error interpreting scale (overflow?)"));
+                                return Err(format!("error interpreting scale (overflow?)"));
                             },
                     },
-                Some(DCValue::Str(_)) => self.error(w, format_args!("scale must be a nonnegative number")),
-                None => self.error(w, format_args!("stack empty")),
+                Some(DCValue::Str(_)) => return Err(format!("scale must be a nonnegative number")),
+                None => return Err(format!("stack empty")),
             },
 
             'I' => self.stack.push(DCValue::Num(BigReal::from(self.iradix))),
@@ -718,14 +726,14 @@ impl DC4 {
                 Some(DCValue::Num(ref n)) if n.is_positive() => {
                     return Ok(DCResult::QuitLevels(n.to_u32().unwrap()));
                 },
-                Some(_) => self.error(w, format_args!("Q command requires a number >= 1")),
-                None => self.error(w, format_args!("stack empty"))
+                Some(_) => return Err(format!("Q command requires a number >= 1")),
+                None => return Err(format!("stack empty"))
             },
 
             'q' => return Ok(DCResult::Terminate(2)),
 
             // catch-all for unhandled characters
-            _ => self.error(w, format_args!("{:?} (0{:o}) unimplemented", c, c as u32))
+            _ => return Err(format!("{:?} (0{:o}) unimplemented", c, c as u32))
         }
         self.prev_char = c;
 
