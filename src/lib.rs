@@ -69,19 +69,19 @@ fn read_char<R: Read>(r: &mut R) -> Result<Option<char>, String> {
         Ok(Some(first_byte as char))
     } else {
         let nbytes = if first_byte & 0b1110_0000 == 0b1100_0000 {
-            1
-        } else if first_byte & 0b1111_0000 == 0b1110_0000 {
             2
-        } else if first_byte & 0b1111_1000 == 0b1111_0000 {
+        } else if first_byte & 0b1111_0000 == 0b1110_0000 {
             3
+        } else if first_byte & 0b1111_1000 == 0b1111_0000 {
+            4
         } else {
             // Illegal leading byte for UTF-8. Don't read any continuation bytes; just let
             // str::from_utf8 return an error.
-            0
+            1
         };
-        let mut bytes = Vec::with_capacity(nbytes + 1);
+        let mut bytes = Vec::with_capacity(nbytes);
         bytes.push(first_byte);
-        for _ in 0..nbytes {
+        for _ in 1..nbytes {
             match read_byte(r).map_err(|e| format!("I/O error: {}", e))? {
                 Some(byte) => bytes.push(byte),
                 None => break

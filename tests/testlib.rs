@@ -290,3 +290,15 @@ fn test_decimal() {
     assert_eq!(dc4_run("10.5 7 *f"), "73.5\n");
     assert_eq!(dc4_run("1.2 1.002 +f"), "2.202\n");
 }
+
+#[test]
+fn test_utf8() {
+    assert_eq!(dc4_run("[Ā‡🎅]f sa f la f"), "Ā‡🎅\nĀ‡🎅\n");
+    assert_eq!(dc4_run("[🎅]s🎅"), "dc4 cargo test: invalid register \'🎅\' (127877); must be in range 0 - 255\n");
+    assert_eq!(
+        dc4_run(unsafe { std::str::from_utf8_unchecked(b"42 [\xc3\x28] f") }),
+        "dc4 cargo test: error reading from input: unable to parse [195, 40] as UTF-8\n");
+    assert_eq!(
+        dc4_run(unsafe { std::str::from_utf8_unchecked(b"\xf8\xa1\xa1\xa1\xa1") }),
+        "dc4 cargo test: error reading from input: unable to parse [248] as UTF-8\n");
+}
