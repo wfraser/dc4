@@ -505,6 +505,9 @@ impl DC4 {
 
         if c == '.' && self.input_shift_digits.is_none() {
             self.input_shift_digits = Some(0); // start shifting
+            if self.input_num.is_none() {
+                self.input_num = Some(BigInt::from(0));
+            }
             return Ok(DCResult::Continue);
         }
         // if c is '.' and the shift has already been specified, then fall through to the block
@@ -548,7 +551,10 @@ impl DC4 {
 
             '!' => { self.invert = true; },
 
-            '.' => { self.input_shift_digits = Some(0); },
+            '.' => {
+                self.input_shift_digits = Some(0);
+                self.input_num = Some(BigInt::from(0));
+            },
 
             's'|'l'|'S'|'L'|'>'|'<'|'='|':'|';' => {}, // then handled above next time around.
 
