@@ -40,6 +40,10 @@ impl BigReal {
         self.shift = shift;
     }
 
+    pub fn get_shift(&self) -> u32 {
+        self.shift
+    }
+
     pub fn to_str_radix(&self, radix: u32) -> String {
         if self.shift == 0 {
             self.value.to_str_radix(radix)

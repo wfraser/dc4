@@ -726,8 +726,68 @@ impl DC4 {
                 Ok(Some(DCValue::Num(result)))
             })?,
 
-            //TODO:
-            // '|': modular exponentiation
+            // modular exponentiation
+            '|' => {
+                if self.stack.len() >= 3 {
+                    for (i, value) in self.stack[self.stack.len() - 3..].iter().enumerate() {
+                        match value {
+                            &DCValue::Num(ref n) => {
+                                if i == 1 && n.is_negative() {
+                                    return Err(format!("negative exponent"));
+                                } else if i == 2 && n.is_zero() {
+                                    return Err(format!("remainder by zero"));
+                                }
+                            },
+                            _ => return Err(format!("non-numeric value"))
+                        }
+                    }
+                } else {
+                    return Err(format!("stack empty"));
+                }
+
+                let skip = self.stack.len() - 3;
+                let mut values = self.stack.drain(skip..)
+                    .map(|value| match value {
+                        DCValue::Num(num) => num,
+                        _ => unreachable!(),
+                    })
+                    .collect::<Vec<BigReal>>();
+
+                let modulus = values.pop().unwrap();
+                let mut exponent = values.pop().unwrap();
+                let mut base = values.pop().unwrap();
+
+                if base.get_shift() != 0 {
+                    self.error(w, format_args!("warning: non-zero scale in base"));
+                } 
+                if exponent.get_shift() != 0 {
+                    self.error(w, format_args!("warning: non-zero scale in exponent"));
+                    exponent = exponent.change_shift(0);
+                }
+                if modulus.get_shift() != 0 {
+                    self.error(w, format_args!("warning: non-zero scale in modulus"));
+                }
+
+                let result = if (&modulus - BigReal::one()).is_zero() {
+                    BigReal::zero()
+                } else {
+                    let two = BigReal::one() + BigReal::one();
+                    base = base.rem(&modulus, 0);
+                    let mut result = BigReal::one();
+                    while !exponent.is_zero() {
+                        if (exponent.rem(&two, self.scale) - BigReal::one()).is_zero() {
+                            result = (result * &base).rem(&modulus, 0);
+                        } 
+                        exponent = exponent.div(&two, 0);
+                        base = (&base * &base).rem(&modulus, 0);
+                    }
+                    result
+                };
+
+                self.stack.push(DCValue::Num(result));
+            },
+
+            // TODO:
             // 'v': square root
 
             'z' => {
