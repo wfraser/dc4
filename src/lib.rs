@@ -50,6 +50,33 @@ pub enum DCResult {
     Recursion(String),
 }
 
+pub enum DCError {
+    Message(String),
+    StaticMessage(&'static str),
+}
+
+impl std::fmt::Display for DCError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let msg = match *self {
+            DCError::Message(ref msg) => msg,
+            DCError::StaticMessage(msg) => msg,
+        };
+        f.write_str(msg)
+    }
+}
+
+impl Into<DCError> for String {
+    fn into(self) -> DCError {
+        DCError::Message(self)
+    }
+}
+
+impl Into<DCError> for &'static str {
+    fn into(self) -> DCError {
+        DCError::StaticMessage(self)
+    }
+}
+
 fn read_byte<R: Read>(r: &mut R) -> Result<Option<u8>, std::io::Error> {
     let mut buf = [0u8; 1];
     let n = r.read(&mut buf)?;
@@ -99,7 +126,7 @@ fn read_char<R: Read>(r: &mut R) -> Result<Option<char>, String> {
     }
 }
 
-fn loop_over_stream<R, F>(input: &mut R, mut f: F) -> Result<DCResult, String>
+fn loop_over_stream<R, F>(input: &mut R, mut f: F) -> Result<DCResult, DCError>
         where R: Read, F: FnMut(char) -> DCResult {
     // TODO: change this to use input.chars() once Read::chars is stable
     loop {
@@ -112,7 +139,7 @@ fn loop_over_stream<R, F>(input: &mut R, mut f: F) -> Result<DCResult, String>
             },
             Ok(None) => break,
             Err(err) => {
-                return Err(format!("error reading from input: {}", err));
+                return Err(format!("error reading from input: {}", err).into());
             }
         }
     }
@@ -161,7 +188,7 @@ impl DC4 {
         }
     }
 
-    fn get_two_ints(&mut self) -> Result<(&BigReal, &BigReal), String> {
+    fn get_two_ints(&mut self) -> Result<(&BigReal, &BigReal), DCError> {
         let a: &BigReal;
         let b: &BigReal;
 
@@ -185,10 +212,10 @@ impl DC4 {
         Ok((a, b))
     }
 
-    fn binary_operator<F>(&mut self, mut f: F) -> Result<(), String>
-            where F: FnMut(&BigReal, &BigReal) -> Result<Option<DCValue>, String> {
+    fn binary_operator<F>(&mut self, mut f: F) -> Result<(), DCError>
+            where F: FnMut(&BigReal, &BigReal) -> Result<Option<DCValue>, DCError> {
 
-        let result: Result<Option<DCValue>, String> = {
+        let result: Result<Option<DCValue>, DCError> = {
             let (a, b) = self.get_two_ints()?;
             f(a, b)
         };
@@ -208,10 +235,10 @@ impl DC4 {
         }
     }
 
-    fn binary_operator2<F>(&mut self, mut f: F) -> Result<(), String>
-            where F: FnMut(&BigReal, &BigReal) -> Result<Vec<DCValue>, String> {
+    fn binary_operator2<F>(&mut self, mut f: F) -> Result<(), DCError>
+            where F: FnMut(&BigReal, &BigReal) -> Result<Vec<DCValue>, DCError> {
 
-        let maybe_results: Result<Vec<DCValue>, String> = {
+        let maybe_results: Result<Vec<DCValue>, DCError> = {
             let (a, b) = self.get_two_ints()?;
             f(a, b)
         };
@@ -231,8 +258,8 @@ impl DC4 {
         }
     }
 
-    fn binary_predicate<F>(&mut self, f: F) -> Result<bool, String>
-            where F: Fn(&BigReal, &BigReal) -> Result<bool, String> {
+    fn binary_predicate<F>(&mut self, f: F) -> Result<bool, DCError>
+            where F: Fn(&BigReal, &BigReal) -> Result<bool, DCError> {
 
         let mut result = false;
         self.binary_operator(|a, b| {
@@ -244,11 +271,11 @@ impl DC4 {
         Ok(result)
     }
 
-    fn pop_stack(&mut self) -> Result<DCValue, String> {
+    fn pop_stack(&mut self) -> Result<DCValue, DCError> {
         self.stack.pop().ok_or_else(|| "stack empty".into())
     }
 
-    fn pop_string(&mut self) -> Result<Option<String>, String> {
+    fn pop_string(&mut self) -> Result<Option<String>, DCError> {
         let correct_type = match self.stack.last() {
             Some(&DCValue::Str(_)) => true,
             None => return Err("stack empty".into()),
@@ -266,10 +293,10 @@ impl DC4 {
         }
     }
 
-    pub fn run_macro_reg(&mut self, c: char) -> Result<DCResult, String> {
+    pub fn run_macro_reg(&mut self, c: char) -> Result<DCResult, DCError> {
         let macro_string = match self.registers.get(c)?.value() {
             Some(&DCValue::Str(ref string)) => Some(string.clone()),
-            None => return Err(format!("register '{}' (0{:o}) is empty", c, c as usize)),
+            None => return Err(format!("register '{}' (0{:o}) is empty", c, c as usize).into()),
             _ => None
         };
         Ok(match macro_string {
@@ -374,7 +401,7 @@ impl DC4 {
         }
     }
 
-    fn loop_iteration<W: Write>(&mut self, c: char, w: &mut W) -> Result<DCResult, String> {
+    fn loop_iteration<W: Write>(&mut self, c: char, w: &mut W) -> Result<DCResult, DCError> {
         if self.bracket_level > 0 {
             if c == '[' {
                 self.bracket_level += 1;
@@ -405,7 +432,7 @@ impl DC4 {
 
             'l' => match self.registers.get(c)?.value() {
                 Some(value) => self.stack.push(value.clone()),
-                None => return Err(format!("register '{}' (0{:o}) is empty", c, c as usize)),
+                None => return Err(format!("register '{}' (0{:o}) is empty", c, c as usize).into()),
             },
 
             'S' => {
@@ -415,7 +442,7 @@ impl DC4 {
 
             'L' => match self.registers.get_mut(c)?.pop() {
                 Some(value) => self.stack.push(value),
-                None => return Err(format!("stack register '{}' (0{:o}) is empty", c, c as usize)),
+                None => return Err(format!("stack register '{}' (0{:o}) is empty", c, c as usize).into()),
             },
 
             '<' => if self.binary_predicate(move |a, b| Ok(invert != (b < a)))? {
@@ -806,7 +833,7 @@ impl DC4 {
             'q' => return Ok(DCResult::Terminate(2)),
 
             // catch-all for unhandled characters
-            _ => return Err(format!("{:?} (0{:o}) unimplemented", c, c as u32))
+            _ => return Err(format!("{:?} (0{:o}) unimplemented", c, c as u32).into())
         }
         self.prev_char = c;
 
