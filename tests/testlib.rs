@@ -305,3 +305,13 @@ fn test_utf8() {
         dc4_run(unsafe { std::str::from_utf8_unchecked(b"\xf8\xa1\xa1\xa1\xa1") }),
         "dc4 cargo test: error reading from input: unable to parse [248] as UTF-8\n");
 }
+
+#[test]
+fn test_modexp() {
+    assert_eq!(dc4_run("4 13 497 |f"), "445\n");
+    assert_eq!(dc4_run("4 _13 497 |f"), "dc4 cargo test: negative exponent\n497\n-13\n4\n");
+    assert_eq!(dc4_run("4 13.9 497 |f"), "dc4 cargo test: warning: non-zero scale in exponent\n445\n");
+    assert_eq!(dc4_run("4 13 0 |f"), "dc4 cargo test: remainder by zero\n0\n13\n4\n");
+    assert_eq!(dc4_run("16o 16i 2946288212CAA2D5B80E1C661006807F 3285C3432ACBCB0F4D0232282ECC73DB 267D2F2E51C216A7DA752EAD48D22D89 |f"),
+        "DDC404D916005967425A8D8A066CA56\n");
+}
