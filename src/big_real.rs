@@ -289,18 +289,13 @@ impl<'a, 'b> Add<&'b BigReal> for &'a BigReal {
             BigReal::new(&self.value + &rhs.value, self.shift)
         }
         else {
-            let x: &BigReal;
-            let y: &BigReal;
-            if self.shift > rhs.shift {
+            let (x, y): (&BigReal, &BigReal) = if self.shift > rhs.shift {
                 // adjust rhs
-                x = self;
-                y = rhs;
-            }
-            else {
+                (self, rhs)
+            } else {
                 // adjust self
-                x = rhs;
-                y = self;
-            }
+                (rhs, self)
+            };
             BigReal::new(&x.value + y.change_shift(x.shift).value, x.shift)
         }
     }

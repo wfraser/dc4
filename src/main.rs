@@ -55,7 +55,7 @@ enum DCInput<'a> {
     Stdin,
 }
 
-fn parse_arguments<'a>(args: &'a Vec<&'a str>)
+fn parse_arguments<'a>(args: &'a [&'a str])
         -> Option<Vec<DCInput<'a>>> {
     let mut inputs: Vec<DCInput<'a>> = Vec::new();
     let mut bare_file_args: Vec<DCInput<'a>> = Vec::new();
@@ -67,14 +67,12 @@ fn parse_arguments<'a>(args: &'a Vec<&'a str>)
     let mut seen_double_dash = false;
 
     let mut skip = 0; // number of args to skip next time around
-    for i in 0..args.len() {
+    for (i, arg) in args.iter().map(|x| *x).enumerate() {
 
         if skip > 0 {
             skip -= 1;
             continue;
         }
-
-        let arg = args[i];
 
         if seen_double_dash {
             inputs.push(DCInput::File(arg));
@@ -181,6 +179,7 @@ fn main() {
             },
         };
 
+        #[allow(match_same_arms)]
         match result {
             DCResult::Recursion(_) => unreachable!(),
             DCResult::Terminate(_) => return,

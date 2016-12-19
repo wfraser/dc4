@@ -4,6 +4,8 @@
 // Copyright (c) 2015-2016 by William R. Fraser
 //
 
+#![allow(unknown_lints, redundant_closure_call)]
+
 use std::io::{Read, Write};
 use std::fmt;
 use std::mem;
@@ -146,9 +148,9 @@ impl DC4 {
     }
 
     fn print_elem<W>(&self, elem: &DCValue, w: &mut W) where W: Write {
-        match elem {
-            &DCValue::Num(ref n) => write!(w, "{}", n.to_str_radix(self.oradix).to_uppercase()).unwrap(),
-            &DCValue::Str(ref s) => write!(w, "{}", s).unwrap(),
+        match *elem {
+            DCValue::Num(ref n) => write!(w, "{}", n.to_str_radix(self.oradix).to_uppercase()).unwrap(),
+            DCValue::Str(ref s) => write!(w, "{}", s).unwrap(),
         }
     }
 
@@ -165,19 +167,19 @@ impl DC4 {
 
         let len = self.stack.len();
         if len < 2 {
-            return Err(format!("stack empty"));
+            return Err("stack empty".into());
         }
 
         match self.stack[len - 2] {
-            DCValue::Num(ref n) => { a = &n; },
+            DCValue::Num(ref n) => { a = n; },
             _ => {
-                return Err(format!("non-numeric value"));
+                return Err("non-numeric value".into());
             }
         }
         match self.stack[len - 1] {
-            DCValue::Num(ref n) => { b = &n; },
+            DCValue::Num(ref n) => { b = n; },
             _ => {
-                return Err(format!("non-numeric value"));
+                return Err("non-numeric value".into());
             }
         }
         Ok((a, b))
@@ -195,9 +197,8 @@ impl DC4 {
             Ok(r) => {
                 self.stack.pop();
                 self.stack.pop();
-                match r {
-                    Some(value) => { self.stack.push(value); },
-                    _ => {},
+                if let Some(value) = r {
+                    self.stack.push(value);
                 }
                 Ok(())
             },
@@ -244,13 +245,13 @@ impl DC4 {
     }
 
     fn pop_stack(&mut self) -> Result<DCValue, String> {
-        self.stack.pop().ok_or_else(|| format!("stack empty"))
+        self.stack.pop().ok_or_else(|| "stack empty".into())
     }
 
     fn pop_string(&mut self) -> Result<Option<String>, String> {
         let correct_type = match self.stack.last() {
             Some(&DCValue::Str(_)) => true,
-            None => return Err(format!("stack empty")),
+            None => return Err("stack empty".into()),
             _ => false
         };
 
@@ -431,7 +432,7 @@ impl DC4 {
 
             ':' => {
                 if self.stack.len() < 2 {
-                    return Err(format!("stack empty"));
+                    return Err("stack empty".into());
                 }
                 else {
                     // this command pops the values regardless of whether the types are correct,
@@ -451,7 +452,7 @@ impl DC4 {
                         _ => None
                     };
                     if key.is_none() {
-                        return Err(format!("array index must be a nonnegative integer"))
+                        return Err("array index must be a nonnegative integer".into())
                     }
                     else {
                         self.registers.get_mut(c)?.array_store(key.unwrap(), value);
@@ -462,11 +463,11 @@ impl DC4 {
             // this command also pops the value regardless of whether it's the correct type.
             ';' => match self.stack.pop() {
                 Some(DCValue::Num(ref index)) if !index.is_negative() => {
-                    let ref value = *self.registers.get(c)?.array_load(&index);
-                    self.stack.push(value.clone());
+                    let value = (*self.registers.get(c)?.array_load(&index)).clone();
+                    self.stack.push(value);
                 },
-                Some(_) => return Err(format!("array index must be a nonnegative integer")),
-                None => return Err(format!("stack empty")),
+                Some(_) => return Err("array index must be a nonnegative integer".into()),
+                None => return Err("stack empty".into()),
             },
 
             _ => { return_early = None; }
@@ -572,12 +573,12 @@ impl DC4 {
                     self.print_elem(elem, w);
                     write!(w, "\n").unwrap();
                 },
-                None => return Err(format!("stack empty")),
+                None => return Err("stack empty".into()),
             },
 
             'n' => match self.stack.pop() {
                 Some(elem) => self.print_elem(&elem, w),
-                None => return Err(format!("stack empty")),
+                None => return Err("stack empty".into()),
             },
 
             'P' => match self.stack.pop() {
@@ -591,11 +592,11 @@ impl DC4 {
                         int = div_rem.0;
                     }
                 },
-                None => return Err(format!("stack empty")),
+                None => return Err("stack empty".into()),
             },
 
             'c' => self.stack.clear(),
-            'd' => if let Some(value) = self.stack.last().map(|v| v.clone()) {
+            'd' => if let Some(value) = self.stack.last().cloned() {
                 self.stack.push(value);
             },
             'r' => if self.stack.len() >= 2 {
@@ -605,7 +606,7 @@ impl DC4 {
                 self.stack.push(b);
             }
             else {
-                return Err(format!("stack empty"));
+                return Err("stack empty".into());
             },
 
             'i' => match self.stack.pop() {
@@ -614,11 +615,11 @@ impl DC4 {
                         Some(radix) if radix >= 2 && radix <= 16 => {
                              self.iradix = radix;
                         },
-                        _ => return Err(format!("input base must be a number between 2 and 16 (inclusive)")),
+                        _ => return Err("input base must be a number between 2 and 16 (inclusive)".into()),
                     },
                 Some(DCValue::Str(_)) =>
-                    return Err(format!("input base must be a number between 2 and 16 (inclusive)")),
-                None => return Err(format!("stack empty")),
+                    return Err("input base must be a number between 2 and 16 (inclusive)".into()),
+                None => return Err("stack empty".into()),
             },
 
             'o' => match self.stack.pop() {
@@ -627,16 +628,16 @@ impl DC4 {
                         Some(radix) if radix >= 2 => {
                             self.oradix = radix;
                         },
-                        Some(_) => return Err(format!("output base must be a number greater than 1")),
-                        _ => if let Some(_) = n.to_i32() {
-                                return Err(format!("output base must be a number greater than 1"));
+                        Some(_) => return Err("output base must be a number greater than 1".into()),
+                        _ => if n.to_i32().is_some() {
+                                return Err("output base must be a number greater than 1".into());
                             } else {
-                                return Err(format!("error interpreting output base (overflow?)"));
+                                return Err("error interpreting output base (overflow?)".into());
                             },
                     },
                 Some(DCValue::Str(_)) =>
-                    return Err(format!("output base must be a number greater than 1")),
-                None => return Err(format!("stack empty")),
+                    return Err("output base must be a number greater than 1".into()),
+                None => return Err("stack empty".into()),
             },
 
             'k' => match self.stack.pop() {
@@ -645,15 +646,15 @@ impl DC4 {
                         Some(scale) => {
                             self.scale = scale;
                         },
-                        _ => if let Some(_) = n.to_i32() {
-                                return Err(format!("scale must be a nonnegative number"));
+                        _ => if n.to_i32().is_some() {
+                                return Err("scale must be a nonnegative number".into());
                             }
                             else {
-                                return Err(format!("error interpreting scale (overflow?)"));
+                                return Err("error interpreting scale (overflow?)".into());
                             },
                     },
-                Some(DCValue::Str(_)) => return Err(format!("scale must be a nonnegative number")),
-                None => return Err(format!("stack empty")),
+                Some(DCValue::Str(_)) => return Err("scale must be a nonnegative number".into()),
+                None => return Err("stack empty".into()),
             },
 
             'I' => self.stack.push(DCValue::Num(BigReal::from(self.iradix))),
@@ -661,9 +662,8 @@ impl DC4 {
             'K' => self.stack.push(DCValue::Num(BigReal::from(self.scale))),
 
             // pop top and execute as macro
-            'x' => match self.pop_string()? {
-                Some(string) => return Ok(DCResult::Recursion(string)),
-                None => (),
+            'x' => if let Some(string) = self.pop_string()? {
+                return Ok(DCResult::Recursion(string));
             },
 
             '+' => self.binary_operator(|a, b| Ok(Some(DCValue::Num(a + b))))?,
@@ -673,7 +673,7 @@ impl DC4 {
                 let scale = self.scale;
                 self.binary_operator(|a, b| {
                     if b.is_zero() {
-                        Err(format!("divide by zero"))
+                        Err("divide by zero".into())
                     }
                     else {
                         Ok(Some(DCValue::Num(a.div(b, scale))))
@@ -686,7 +686,7 @@ impl DC4 {
                 let scale = self.scale;
                 self.binary_operator(|a, b| {
                     if b.is_zero() {
-                        Err(format!("divide by zero"))
+                        Err("divide by zero".into())
                     }
                     else {
                         Ok(Some(DCValue::Num(a.rem(b, scale))))
@@ -699,7 +699,7 @@ impl DC4 {
                 let scale = self.scale;
                 self.binary_operator2(|a, b| {
                     if b.is_zero() {
-                        Err(format!("divide by zero"))
+                        Err("divide by zero".into())
                     }
                     else {
                         let div_rem = a.div_rem(b, scale);
@@ -730,19 +730,19 @@ impl DC4 {
             '|' => {
                 if self.stack.len() >= 3 {
                     for (i, value) in self.stack[self.stack.len() - 3..].iter().enumerate() {
-                        match value {
-                            &DCValue::Num(ref n) => {
+                        match *value {
+                            DCValue::Num(ref n) => {
                                 if i == 1 && n.is_negative() {
-                                    return Err(format!("negative exponent"));
+                                    return Err("negative exponent".into());
                                 } else if i == 2 && n.is_zero() {
-                                    return Err(format!("remainder by zero"));
+                                    return Err("remainder by zero".into());
                                 }
                             },
-                            _ => return Err(format!("non-numeric value"))
+                            _ => return Err("non-numeric value".into())
                         }
                     }
                 } else {
-                    return Err(format!("stack empty"));
+                    return Err("stack empty".into());
                 }
 
                 let skip = self.stack.len() - 3;
@@ -759,7 +759,7 @@ impl DC4 {
 
                 if base.get_shift() != 0 {
                     self.error(w, format_args!("warning: non-zero scale in base"));
-                } 
+                }
                 if exponent.get_shift() != 0 {
                     self.error(w, format_args!("warning: non-zero scale in exponent"));
                     exponent = exponent.change_shift(0);
@@ -777,7 +777,7 @@ impl DC4 {
                     while !exponent.is_zero() {
                         if (exponent.rem(&two, self.scale) - BigReal::one()).is_zero() {
                             result = (result * &base).rem(&modulus, 0);
-                        } 
+                        }
                         exponent = exponent.div(&two, 0);
                         base = (&base * &base).rem(&modulus, 0);
                     }
@@ -799,8 +799,8 @@ impl DC4 {
                 Some(DCValue::Num(ref n)) if n.is_positive() => {
                     return Ok(DCResult::QuitLevels(n.to_u32().unwrap()));
                 },
-                Some(_) => return Err(format!("Q command requires a number >= 1")),
-                None => return Err(format!("stack empty"))
+                Some(_) => return Err("Q command requires a number >= 1".into()),
+                None => return Err("stack empty".into())
             },
 
             'q' => return Ok(DCResult::Terminate(2)),
