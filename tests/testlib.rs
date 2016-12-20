@@ -297,6 +297,7 @@ fn test_decimal() {
 #[test]
 fn test_utf8() {
     assert_eq!(dc4_run("[Ā‡🎅]f sa f la f"), "Ā‡🎅\nĀ‡🎅\n");
+    assert_eq!(dc4_run("[[Ā‡🎅]f]x"), "Ā‡🎅\n");
     assert_eq!(dc4_run("[🎅]s🎅"), "dc4 cargo test: invalid register \'🎅\' (127877); must be in range 0 - 255\n");
     assert_eq!(
         dc4_run(unsafe { std::str::from_utf8_unchecked(b"42 [\xc3\x28] f") }),

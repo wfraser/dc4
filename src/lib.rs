@@ -305,34 +305,27 @@ impl DC4 {
         })
     }
 
-    pub fn run_macro_str<W: Write>(&mut self, w: &mut W, macro_text: String) -> DCResult {
+    pub fn run_macro_str<W: Write>(&mut self, w: &mut W, mut macro_text: String) -> DCResult {
         self.prev_char = '\0';
 
-        let mut current_text = macro_text.into_bytes();
-        let mut pos = 0;
-        let mut len = current_text.len();
+        let mut pos = 0usize;
+        let mut len = macro_text.len();
         let mut tail_recursion_levels = 0;
         while pos < len {
-            let c = current_text[pos] as char;
-            pos += 1;
+            // extract the char at pos
+            let c = unsafe { macro_text.slice_unchecked(pos, len).chars().next().unwrap() };
+
+            // Seek to the next char boundary.
+            loop {
+                pos += 1;
+                if pos == len || macro_text.is_char_boundary(pos) {
+                    break;
+                }
+            }
 
             let mut result = match self.loop_iteration(c, w) {
                 Ok(result) => result,
                 Err(msg) => {
-                    /*
-                    for byte in &current_text {
-                        print!("{}", *byte as char);
-                    }
-                    println!("");
-                    for _ in 0 .. pos - 1 {
-                        print!(" ");
-                    }
-                    print!("^");
-                    for _ in pos .. len {
-                        print!(" ");
-                    }
-                    println!("");
-                    */
                     self.error(w, format_args!("{}", msg));
                     DCResult::Continue
                 }
@@ -345,9 +338,10 @@ impl DC4 {
                 // Tail recursion optimization:
                 // if macro text is empty, replace it with sub_text and continue
                 if pos == len {
-                    current_text = sub_text.into_bytes();
+                    macro_text = sub_text;
                     pos = 0;
-                    len = current_text.len();
+                    len = macro_text.len();
+
                     tail_recursion_levels += 1;
                     result = DCResult::Continue;
                 }
