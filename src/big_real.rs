@@ -5,7 +5,7 @@
 //
 
 use std::cmp::max;
-use std::ops::{Add, Sub, Mul, Neg};
+use std::ops::{Add, Sub, Mul, Neg, Shr};
 
 extern crate num;
 use num::BigInt;
@@ -102,6 +102,36 @@ impl BigReal {
         }
     }
 
+    pub fn pow(&self, exponent: &BigReal) -> BigReal {
+        if exponent.is_zero() {
+            return BigReal::one();
+        } else if exponent.is_negative() {
+            // TODO: handle negative exponents
+            return BigReal::zero();
+        }
+
+        let mut exponent: BigInt = exponent.change_shift(0).value; // ignore fractional part.
+        let one = BigInt::one();
+
+        let mut base = self.clone();
+
+        while exponent.is_even() {
+            base = &base * &base;
+            exponent = exponent.shr(1);
+        }
+
+        let mut result = base.clone();
+        while (&exponent - &one).is_positive() {
+            exponent = exponent.shr(1);
+            base = &base * &base;
+            if exponent.is_odd() {
+                result = result * &base;
+            }
+        }
+
+        result
+    }
+
     pub fn sqrt(&self, scale: u32) -> Option<BigReal> {
         if self.is_negative() {
             return None;
@@ -138,15 +168,15 @@ impl BigReal {
             return Some(BigReal::zero());
         }
 
-        let mut base = base.rem(&modulus, 0);
+        let mut base = base.rem(modulus, 0);
         let mut exponent = exponent.change_shift(0);
         let mut result = one.clone();
         while !exponent.is_zero() {
             if (exponent.rem(&two, scale) - &one).is_zero() {
-                result = (result * &base).rem(&modulus, 0);
+                result = (result * &base).rem(modulus, 0);
             }
             exponent = exponent.div(&two, 0);
-            base = (&base * &base).rem(&modulus, 0);
+            base = (&base * &base).rem(modulus, 0);
         }
 
         Some(result)

@@ -11,7 +11,7 @@ use std::fmt;
 use std::mem;
 
 extern crate num;
-use num::traits::{ToPrimitive, Zero, One};
+use num::traits::{ToPrimitive, Zero};
 use num::BigInt;
 
 mod big_real;
@@ -730,22 +730,21 @@ impl DC4 {
             },
 
             // exponentiate
-            '^' => self.binary_operator(|base, exponent| {
-                let mut result: BigReal;
-                if exponent.is_zero() {
-                    result = BigReal::one();
-                }
-                else if exponent.is_negative() {
-                    result = BigReal::zero();
-                }
-                else {
-                    result = base.clone();
-                    for _ in num::iter::range(BigReal::zero(), exponent - BigReal::one()) {
-                        result = result * base;
+            '^' => {
+                let mut warn = false;
+                self.binary_operator(|base, exponent| {
+                    if !exponent.is_integer() {
+                        // have to print the warning outside the clousure
+                        warn = true;
                     }
+
+                    let result = base.pow(exponent);
+                    Ok(Some(DCValue::Num(result)))
+                })?;
+                if warn {
+                    self.error(w, format_args!("warning: non-zero scale in exponent"));
                 }
-                Ok(Some(DCValue::Num(result)))
-            })?,
+            },
 
             // modular exponentiation
             '|' => {
