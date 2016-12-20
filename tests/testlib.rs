@@ -316,3 +316,23 @@ fn test_modexp() {
     assert_eq!(dc4_run("16o 16i 2946288212CAA2D5B80E1C661006807F 3285C3432ACBCB0F4D0232282ECC73DB 267D2F2E51C216A7DA752EAD48D22D89 |f"),
         "DDC404D916005967425A8D8A066CA56\n");
 }
+
+#[test]
+fn test_sqrt() {
+    assert_eq!(dc4_run("[foo] vf"), "dc4 cargo test: square root of nonnumeric attempted\n");
+    assert_eq!(dc4_run("_25 vf"), "dc4 cargo test: square root of negative number\n");
+    assert_eq!(dc4_run("0 vf"), "0\n");
+
+    assert_eq!(dc4_run("25 vf"), "5\n");
+    assert_eq!(dc4_run("25.000 vf"), "5.000\n");
+    assert_eq!(dc4_run("3k 25 vf"), "5.000\n");
+    assert_eq!(dc4_run("5k 25.000 vf"), "5.00000\n");
+    assert_eq!(dc4_run("3k 25.00000 vf"), "5.00000\n");
+    assert_eq!(dc4_run("15241.384 vf"), "123.456\n");
+    assert_eq!(dc4_run("15241.383 vf"), "123.455\n");
+
+    assert_eq!(dc4_run("16o 15241.384 vf"), "7B.74B\n");            // 123.455
+    assert_eq!(dc4_run("16o 15241.383 vf"), "7B.747\n");            // 123.454
+    assert_eq!(dc4_run("2o 15241.384 vf"), "1111011.0111010010\n"); // 123.4550781250
+    assert_eq!(dc4_run("2o 15241.383 vf"), "1111011.0111010001\n"); // 123.4541015625
+}

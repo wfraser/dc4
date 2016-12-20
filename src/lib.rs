@@ -808,8 +808,40 @@ impl DC4 {
                 self.stack.push(DCValue::Num(result));
             },
 
-            // TODO:
-            // 'v': square root
+            // square root
+            'v' => match self.stack.pop() {
+                Some(DCValue::Num(n)) => {
+                    if n.is_negative() {
+                        return Err("square root of negative number".into());
+                    } else if n.is_zero() {
+                        self.stack.push(DCValue::Num(n));
+                    } else {
+                        let scale = std::cmp::max(n.get_shift(), self.scale);
+
+                        let mut x = n.clone();
+                        let one = BigReal::one();
+                        let two = &one + &one;
+
+                        // Integer square root iteration.
+                        loop {
+                            let next = (&x + (&n).div(&x, scale)).div(&two, scale);
+
+                            let mut delta = (&x - &next).abs();
+                            x = next;
+
+                            // If the least significant digit of delta is 0 or 1, we're done.
+                            delta.set_shift(0);
+                            if !(delta - &one).is_positive() {
+                                break;
+                            }
+                        }
+
+                        self.stack.push(DCValue::Num(x));
+                    }
+                },
+                Some(_) => return Err("square root of nonnumeric attempted".into()),
+                None => return Err("stack empty".into())
+            },
 
             'z' => {
                 let depth = self.stack.len();
