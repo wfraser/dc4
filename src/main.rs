@@ -112,7 +112,11 @@ fn parse_arguments<'a>(args: &'a [&'a str])
             }
 
             let p = &args[i + 1];
-            inputs.push(DCInput::File(p));
+            if !seen_double_dash && p == &"-" {
+                inputs.push(DCInput::Stdin);
+            } else {
+                inputs.push(DCInput::File(p));
+            }
             skip = 1;
             process_stdin = false;
         }
