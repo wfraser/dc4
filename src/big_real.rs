@@ -19,7 +19,7 @@ pub struct BigReal {
 }
 
 impl BigReal {
-    pub fn change_shift(&self, desired_shift: u32) -> BigReal {
+    fn change_shift(&self, desired_shift: u32) -> BigReal {
         let ten = BigInt::from(10);
         let mut result = self.clone();
         if desired_shift > result.shift {
@@ -38,10 +38,6 @@ impl BigReal {
 
     pub fn set_shift(&mut self, shift: u32) {
         self.shift = shift;
-    }
-
-    pub fn get_shift(&self) -> u32 {
-        self.shift
     }
 
     pub fn to_str_radix(&self, radix: u32) -> String {
@@ -104,6 +100,60 @@ impl BigReal {
 
             string_result
         }
+    }
+
+    pub fn sqrt(&self, scale: u32) -> Option<BigReal> {
+        if self.is_negative() {
+            return None;
+        }
+
+        let scale = ::std::cmp::max(self.shift, scale);
+
+        let mut x = self.clone();
+        let one_int = BigInt::one();
+        let two_real = BigReal::from(2);
+
+        loop {
+            let next = (&x + self.div(&x, scale)).div(&two_real, scale);
+            let delta = (&x - &next).abs();
+            x = next;
+
+            if !(delta.value - &one_int).is_positive() {
+                break;
+            }
+        }
+
+        Some(x)
+    }
+
+    pub fn modexp(base: &BigReal, exponent: &BigReal, modulus: &BigReal, scale: u32) -> Option<BigReal> {
+        if exponent.is_negative() || modulus.is_zero() {
+            return None;
+        }
+
+        let one = BigReal::one();
+        let two = BigReal::from(2);
+
+        if (modulus - &one).is_zero() {
+            return Some(BigReal::zero());
+        }
+
+        let mut base = base.rem(&modulus, 0);
+        let mut exponent = exponent.change_shift(0);
+        let mut result = one.clone();
+        while !exponent.is_zero() {
+            if (exponent.rem(&two, scale) - &one).is_zero() {
+                result = (result * &base).rem(&modulus, 0);
+            }
+            exponent = exponent.div(&two, 0);
+            base = (&base * &base).rem(&modulus, 0);
+        }
+
+        Some(result)
+    }
+
+    pub fn is_integer(&self) -> bool {
+        self.shift == 0
     }
 
     // Our own implementations of Div and Rem, which need an extra "scale" argument:

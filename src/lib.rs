@@ -775,36 +775,20 @@ impl DC4 {
                     .collect::<Vec<BigReal>>();
 
                 let modulus = values.pop().unwrap();
-                let mut exponent = values.pop().unwrap();
-                let mut base = values.pop().unwrap();
+                let exponent = values.pop().unwrap();
+                let base = values.pop().unwrap();
 
-                if base.get_shift() != 0 {
+                if !base.is_integer() {
                     self.error(w, format_args!("warning: non-zero scale in base"));
                 }
-                if exponent.get_shift() != 0 {
+                if !exponent.is_integer() {
                     self.error(w, format_args!("warning: non-zero scale in exponent"));
-                    exponent = exponent.change_shift(0);
                 }
-                if modulus.get_shift() != 0 {
+                if !modulus.is_integer() {
                     self.error(w, format_args!("warning: non-zero scale in modulus"));
                 }
 
-                let result = if (&modulus - BigReal::one()).is_zero() {
-                    BigReal::zero()
-                } else {
-                    let two = BigReal::one() + BigReal::one();
-                    base = base.rem(&modulus, 0);
-                    let mut result = BigReal::one();
-                    while !exponent.is_zero() {
-                        if (exponent.rem(&two, self.scale) - BigReal::one()).is_zero() {
-                            result = (result * &base).rem(&modulus, 0);
-                        }
-                        exponent = exponent.div(&two, 0);
-                        base = (&base * &base).rem(&modulus, 0);
-                    }
-                    result
-                };
-
+                let result = BigReal::modexp(&base, &exponent, &modulus, self.scale).unwrap();
                 self.stack.push(DCValue::Num(result));
             },
 
@@ -816,26 +800,7 @@ impl DC4 {
                     } else if n.is_zero() {
                         self.stack.push(DCValue::Num(n));
                     } else {
-                        let scale = std::cmp::max(n.get_shift(), self.scale);
-
-                        let mut x = n.clone();
-                        let one = BigReal::one();
-                        let two = &one + &one;
-
-                        // Integer square root iteration.
-                        loop {
-                            let next = (&x + (&n).div(&x, scale)).div(&two, scale);
-
-                            let mut delta = (&x - &next).abs();
-                            x = next;
-
-                            // If the least significant digit of delta is 0 or 1, we're done.
-                            delta.set_shift(0);
-                            if !(delta - &one).is_positive() {
-                                break;
-                            }
-                        }
-
+                        let x = n.sqrt(self.scale).unwrap();
                         self.stack.push(DCValue::Num(x));
                     }
                 },
