@@ -117,6 +117,7 @@ fn test_arithmetic() {
     assert_eq!(dc4_run("2 0 ^f"), "1\n");
     assert_eq!(dc4_run("2 _10 ^f"), "0\n");
     assert_eq!(dc4_run("12k 2 _10 ^f"), ".000976562500\n");
+    assert_eq!(dc4_run("10k _2 _9 ^f"), "-.0019531250\n");
 }
 
 #[test]

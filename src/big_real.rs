@@ -46,38 +46,51 @@ impl BigReal {
         }
         else if radix == 10 {
             // For decimal, it's fine to just put the dot in the right place.
-            let output: String = self.value.to_str_radix(radix);
-            if output.len() < self.shift as usize {
+            let mut output = if self.is_negative() {
+                "-".to_string()
+            } else {
+                String::new()
+            };
+
+            let digits: String = self.value.abs().to_str_radix(radix);
+            if digits.len() < self.shift as usize {
                 // output lacks leading zeroes
-                let mut s = ".".to_string();
-                for _ in 0..(self.shift as usize - output.len()) {
-                    s.push_str("0");
+                output.push('.');
+                for _ in 0..(self.shift as usize - digits.len()) {
+                    output.push('0');
                 }
-                s + &output
+                output.push_str(&digits);
             }
             else {
-                let decimal_pos = output.len() - self.shift as usize;
-                output[..decimal_pos].to_string() + "." + &output[decimal_pos..]
+                let decimal_pos = digits.len() - self.shift as usize;
+                output.push_str(&digits[..decimal_pos]);
+                output.push('.');
+                output.push_str(&digits[decimal_pos..]);
             }
+            output
         }
         else {
             // For non-decimal, the whole part is fine, but the string representation of the
             // fractional part needs to be computed manually using long division.
 
-            let whole = self.change_shift(0);
-            let mut string_result = if whole.value.is_zero() {
-                // suppress leading zero
-                ".".to_string()
-            }
-            else {
-                whole.value.to_str_radix(radix) + "."
+            let mut string_result = if self.value.is_negative() {
+                "-".to_string()
+            } else {
+                String::new()
             };
+
+            let whole = self.change_shift(0).abs();
+
+            if !whole.value.is_zero() { // suppress leading zero
+                string_result.push_str(&whole.value.to_str_radix(radix));
+            }
+            string_result.push('.');
 
             let big_radix = BigInt::from(radix);
 
             // start with the part shifted over one place value (because otherwise the first
             // iteration would always yield zero).
-            let mut part = (&self.value - whole.change_shift(self.shift).value) * &big_radix;
+            let mut part = (&self.value - whole.change_shift(self.shift).value).abs() * &big_radix;
 
             // These control when we stop the iteration.
             // When the current place value (in whatever radix) is greater than the amount of the
