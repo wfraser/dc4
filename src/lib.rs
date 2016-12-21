@@ -732,13 +732,14 @@ impl DC4 {
             // exponentiate
             '^' => {
                 let mut warn = false;
+                let scale = self.scale;
                 self.binary_operator(|base, exponent| {
                     if !exponent.is_integer() {
                         // have to print the warning outside the clousure
                         warn = true;
                     }
 
-                    let result = base.pow(exponent);
+                    let result = base.pow(exponent, scale);
                     Ok(Some(DCValue::Num(result)))
                 })?;
                 if warn {

@@ -102,15 +102,16 @@ impl BigReal {
         }
     }
 
-    pub fn pow(&self, exponent: &BigReal) -> BigReal {
+    pub fn pow(&self, exponent: &BigReal, scale: u32) -> BigReal {
+        let mut negative = false;
         if exponent.is_zero() {
             return BigReal::one();
         } else if exponent.is_negative() {
-            // TODO: handle negative exponents
-            return BigReal::zero();
+            negative = true;
         }
 
-        let mut exponent: BigInt = exponent.change_shift(0).value; // ignore fractional part.
+        // Ignore the fractional part of the exponent.
+        let mut exponent: BigInt = exponent.change_shift(0).value.abs();
         let one = BigInt::one();
 
         let mut base = self.clone();
@@ -129,7 +130,11 @@ impl BigReal {
             }
         }
 
-        result
+        if negative {
+            BigReal::from(one).div(&result, scale)
+        } else {
+            result
+        }
     }
 
     pub fn sqrt(&self, scale: u32) -> Option<BigReal> {
@@ -156,7 +161,8 @@ impl BigReal {
         Some(x)
     }
 
-    pub fn modexp(base: &BigReal, exponent: &BigReal, modulus: &BigReal, scale: u32) -> Option<BigReal> {
+    pub fn modexp(base: &BigReal, exponent: &BigReal, modulus: &BigReal, scale: u32)
+            -> Option<BigReal> {
         if exponent.is_negative() || modulus.is_zero() {
             return None;
         }

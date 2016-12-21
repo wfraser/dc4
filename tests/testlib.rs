@@ -116,6 +116,7 @@ fn test_arithmetic() {
     assert_eq!(dc4_run("_2 10 ^f"), "1024\n");
     assert_eq!(dc4_run("2 0 ^f"), "1\n");
     assert_eq!(dc4_run("2 _10 ^f"), "0\n");
+    assert_eq!(dc4_run("12k 2 _10 ^f"), ".000976562500\n");
 }
 
 #[test]
@@ -125,6 +126,7 @@ fn test_invalid_arithmetic() {
     assert_eq!(dc4_run("3 0 /f"), "dc4 cargo test: divide by zero\n0\n3\n");
     assert_eq!(dc4_run("3 0 %f"), "dc4 cargo test: divide by zero\n0\n3\n");
     assert_eq!(dc4_run("3 0 ~f"), "dc4 cargo test: divide by zero\n0\n3\n");
+    assert_eq!(dc4_run("3 2.5 ^f"), "dc4 cargo test: warning: non-zero scale in exponent\n9\n");
 }
 
 #[test]
