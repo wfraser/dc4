@@ -6,7 +6,7 @@
 
 #![allow(unknown_lints, redundant_closure_call)]
 
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::fmt;
 use std::mem;
 
@@ -581,6 +581,27 @@ impl DC4 {
             's'|'l'|'S'|'L'|'>'|'<'|'='|':'|';' => {}, // then handled above next time around.
 
             '_' => self.negative = true,
+
+            '?' => {
+                let mut line = String::new();
+                if let Err(e) = io::stdin().read_line(&mut line) {
+                    writeln!(w, "warning: error reading input: {}", e).unwrap();
+                }
+
+                let result = self.run_macro_str(w, line);
+                match result {
+                    DCResult::Recursion(_) => unreachable!(),
+                    DCResult::Continue => (),
+                    DCResult::QuitLevels(n) => {
+                        if n > 1 {
+                            return Ok(DCResult::QuitLevels(n-1));
+                        }
+                    },
+                    DCResult::Terminate(n) => {
+                        return Ok(DCResult::Terminate(n));
+                    }
+                }
+            },
 
              // nonstandard extension: print the implementation name
             '@' => write!(w, "dc4\n").unwrap(),
