@@ -31,6 +31,7 @@ pub struct DC4 {
     input_shift_digits: Option<u32>,
     input_str: String,
     bracket_level: u32,
+    in_comment: bool,
     negative: bool,
     invert: bool,
     prev_char: char,
@@ -168,6 +169,7 @@ impl DC4 {
             input_shift_digits: None,
             input_str: String::new(),
             bracket_level: 0,
+            in_comment: false,
             negative: false,    // for number entry
             invert: false,      // for conditional macro execution
             prev_char: '\0',
@@ -412,6 +414,16 @@ impl DC4 {
             if self.bracket_level > 0 {
                 self.input_str.push(c);
             }
+            return Ok(DCResult::Continue);
+        }
+
+        if self.in_comment {
+            if c == '\n' {
+                self.in_comment = false;
+            }
+            return Ok(DCResult::Continue);
+        } else if c == '#' {
+            self.in_comment = true;
             return Ok(DCResult::Continue);
         }
 

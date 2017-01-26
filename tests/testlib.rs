@@ -339,3 +339,10 @@ fn test_sqrt() {
     assert_eq!(dc4_run("2o 15241.384 vf"), "1111011.0111010010\n"); // 123.4550781250
     assert_eq!(dc4_run("2o 15241.383 vf"), "1111011.0111010001\n"); // 123.4541015625
 }
+
+#[test]
+fn test_comment() {
+    assert_eq!(dc4_run("1 2 # 3 4 \n 5 6 f"), "6\n5\n2\n1\n");
+    assert_eq!(dc4_run("1 2 [# 3 4] 5 6 f"), "6\n5\n# 3 4\n2\n1\n");
+    assert_eq!(dc4_run("1 2 # [3\n4] 5\n6 f"), "dc4 cargo test: \']\' (0135) unimplemented\n6\n5\n4\n2\n1\n");
+}
