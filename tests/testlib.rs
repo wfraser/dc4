@@ -1,7 +1,7 @@
 //
 // dc4 test suite
 //
-// Copyright (c) 2015-2016 by William R. Fraser
+// Copyright (c) 2015-2017 by William R. Fraser
 //
 
 extern crate dc4;
@@ -304,10 +304,10 @@ fn test_utf8() {
     assert_eq!(dc4_run("[🎅]s🎅"), "dc4 cargo test: invalid register \'🎅\' (127877); must be in range 0 - 255\n");
     assert_eq!(
         dc4_run(unsafe { std::str::from_utf8_unchecked(b"42 [\xc3\x28] f") }),
-        "dc4 cargo test: error reading from input: unable to parse [195, 40] as UTF-8\n");
+        "dc4 cargo test: error reading from input: unable to parse [195, 40] as UTF-8: invalid utf-8 sequence of 1 bytes from index 0\n");
     assert_eq!(
         dc4_run(unsafe { std::str::from_utf8_unchecked(b"\xf8\xa1\xa1\xa1\xa1") }),
-        "dc4 cargo test: error reading from input: unable to parse [248] as UTF-8\n");
+        "dc4 cargo test: error reading from input: unable to parse [248] as UTF-8: invalid utf-8 sequence of 1 bytes from index 0\n");
 }
 
 #[test]

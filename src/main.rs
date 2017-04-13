@@ -13,17 +13,13 @@ extern crate dc4;
 
 use std::env;
 use std::fs::File;
-use std::io;
-use std::io::Cursor;
+use std::io::{self, Cursor};
 
 use dc4::DC4;
 use dc4::DCResult;
 
 fn basename(path: &str) -> &str {
-    match path.rsplitn(2, '/').next() {
-        Some(s) => s,
-        _ => path
-    }
+    path.rsplitn(2, '/').next().unwrap_or(path)
 }
 
 fn progname() -> String {

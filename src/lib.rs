@@ -1,7 +1,7 @@
 //
 // dc4 :: A Unix dc(1) implementation in Rust
 //
-// Copyright (c) 2015-2016 by William R. Fraser
+// Copyright (c) 2015-2017 by William R. Fraser
 //
 
 #![allow(unknown_lints, redundant_closure_call)]
@@ -117,12 +117,8 @@ fn read_char<R: Read>(r: &mut R) -> Result<Option<char>, String> {
                 None => break
             }
         }
-        let s = match std::str::from_utf8(&bytes) {
-            Ok(s) => s,
-            Err(_) => {
-                return Err(format!("unable to parse {:?} as UTF-8", bytes));
-            }
-        };
+        let s = std::str::from_utf8(&bytes)
+                         .map_err(|e| format!("unable to parse {:?} as UTF-8: {}", bytes, e))?;
         Ok(Some(s.chars().next().unwrap()))
     }
 }
@@ -496,7 +492,7 @@ impl DC4 {
             // this command also pops the value regardless of whether it's the correct type.
             ';' => match self.stack.pop() {
                 Some(DCValue::Num(ref index)) if !index.is_negative() => {
-                    let value = (*self.registers.get(c)?.array_load(&index)).clone();
+                    let value = (*self.registers.get(c)?.array_load(index)).clone();
                     self.stack.push(value);
                 },
                 Some(_) => return Err("array index must be a nonnegative integer".into()),
