@@ -4,8 +4,10 @@
 // This is the program entry point.
 // It parses command line arguments and invokes the dc4 library.
 //
-// Copyright (c) 2015-2016 by William R. Fraser
+// Copyright (c) 2015-2017 by William R. Fraser
 //
+
+#![allow(unknown_lints)] // for clippy
 
 extern crate dc4;
 

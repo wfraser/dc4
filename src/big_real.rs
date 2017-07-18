@@ -1,10 +1,10 @@
 //
 // BigReal :: An arbitrary-precision real number class.
 //
-// Copyright (c) 2016 by William R. Fraser
+// Copyright (c) 2016-2017 by William R. Fraser
 //
 
-use std::cmp::max;
+use std::cmp::{max, Ordering};
 use std::ops::{Add, Sub, Mul, Neg, Shr};
 
 extern crate num;
@@ -12,7 +12,7 @@ use num::BigInt;
 use num::integer::Integer;
 use num::traits::{Zero, One, Signed, ToPrimitive, FromPrimitive};
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[derive(Clone, Debug, Hash)]
 pub struct BigReal {
     shift: u32, // in decimal digits
     value: BigInt,
@@ -246,6 +246,31 @@ impl BigReal {
     }
 }
 
+impl PartialOrd for BigReal {
+    fn partial_cmp(&self, rhs: &BigReal) -> Option<Ordering> {
+        if self.shift == rhs.shift {
+            self.value.partial_cmp(&rhs.value)
+        } else {
+            let adj = rhs.change_shift(self.shift);
+            self.value.partial_cmp(&adj.value)
+        }
+    }
+}
+
+impl PartialEq for BigReal {
+    fn eq(&self, rhs: &BigReal) -> bool {
+        if self.shift == rhs.shift {
+            self.value.eq(&rhs.value)
+        } else {
+            let adj = rhs.change_shift(self.shift);
+            self.value.eq(&adj.value)
+        }
+    }
+}
+
+impl Eq for BigReal {
+}
+
 impl Zero for BigReal {
     fn zero() -> BigReal {
         BigReal::from(0)
@@ -429,10 +454,21 @@ fn test_new() {
 }
 
 #[test]
-fn test_cmp() {
+fn test_eq() {
     let a = BigReal::new(1, 2);
     let b = BigReal::new(2, 2);
+    assert!(!(a == b));
     assert!(a != b);
+}
+
+#[test]
+fn test_cmp() {
+    let a = BigReal::new(1, 0); // 1
+    let b = BigReal::new(1, 3); // .001
+    assert!(a > b);
+    assert!(a >= b);
+    assert!(!(a < b));
+    assert!(!(a <= b));
 }
 
 #[test]
