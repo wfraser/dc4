@@ -5,6 +5,7 @@
 //
 
 use std::cmp::{max, Ordering};
+use std::hash::{Hash, Hasher};
 use std::ops::{Add, Sub, Mul, Neg, Shr};
 
 extern crate num;
@@ -12,7 +13,7 @@ use num::BigInt;
 use num::integer::Integer;
 use num::traits::{Zero, One, Signed, ToPrimitive, FromPrimitive};
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub struct BigReal {
     shift: u32, // in decimal digits
     value: BigInt,
@@ -34,6 +35,22 @@ impl BigReal {
         }
         result.shift = desired_shift;
         result
+    }
+
+    /// Reduce the shift as much as possible without losing any precision.
+    pub fn simplify(&mut self) {
+        let ten = BigInt::from(10);
+        loop {
+            if self.shift == 0 {
+                break;
+            }
+            let (quotient, remainder) = self.value.div_rem(&ten);
+            if !remainder.is_zero() {
+                break;
+            }
+            self.shift -= 1;
+            self.value = quotient;
+        }
     }
 
     pub fn set_shift(&mut self, shift: u32) {
@@ -251,8 +268,10 @@ impl PartialOrd for BigReal {
         if self.shift == rhs.shift {
             self.value.partial_cmp(&rhs.value)
         } else {
-            let adj = rhs.change_shift(self.shift);
-            self.value.partial_cmp(&adj.value)
+            let max_shift = max(self.shift, rhs.shift);
+            let a = self.change_shift(max_shift);
+            let b = rhs.change_shift(max_shift);
+            a.value.partial_cmp(&b.value)
         }
     }
 }
@@ -262,14 +281,26 @@ impl PartialEq for BigReal {
         if self.shift == rhs.shift {
             self.value.eq(&rhs.value)
         } else {
-            let adj = rhs.change_shift(self.shift);
-            self.value.eq(&adj.value)
+            let max_shift = max(self.shift, rhs.shift);
+            let a = self.change_shift(max_shift);
+            let b = rhs.change_shift(max_shift);
+            a.value.eq(&b.value)
         }
     }
 }
 
 impl Eq for BigReal {
 }
+
+impl Hash for BigReal {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut simp = self.clone();
+        simp.simplify();
+        simp.shift.hash(state);
+        simp.value.hash(state);
+    }
+}
+
 
 impl Zero for BigReal {
     fn zero() -> BigReal {
@@ -533,4 +564,14 @@ fn test_str2() {
     assert_eq!(a.to_str_radix(10), "1.100");
     assert_eq!(a.to_str_radix(16), "1.199");
     assert_eq!(a.to_str_radix(2), "1.0001100110");
+}
+
+#[test]
+fn test_simplify() {
+    let a = BigReal::new(1100, 3); // 1.100
+    let mut b = a.clone();
+    b.simplify();
+    assert!(a == b);
+    assert_eq!(b.shift, 1);
+    assert_eq!(b.value.to_str_radix(10), "11");
 }
