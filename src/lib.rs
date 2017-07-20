@@ -611,8 +611,15 @@ impl DC4 {
                 }
             },
 
-             // nonstandard extension: print the implementation name
-            '@' => write!(w, "dc4\n").unwrap(),
+            // nonstandard extension: push the version formatted as 0xMMmmPPPP (M=major, m=minor,
+            // p=patch), followed by the implementation name.
+            '@' => {
+                let ver = env!("CARGO_PKG_VERSION_MAJOR").parse::<u64>().unwrap() << 24
+                        | env!("CARGO_PKG_VERSION_MINOR").parse::<u64>().unwrap() << 16
+                        | env!("CARGO_PKG_VERSION_PATCH").parse::<u64>().unwrap();
+                self.stack.push(DCValue::Num(BigReal::from(ver)));
+                self.stack.push(DCValue::Str("dc4".to_owned()));
+            },
 
             '[' => self.bracket_level += 1,
 
