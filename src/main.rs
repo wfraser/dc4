@@ -14,20 +14,21 @@ extern crate dc4;
 use std::env;
 use std::fs::File;
 use std::io::{self, Cursor};
+use std::path::Path;
 
 use dc4::DC4;
 use dc4::DCResult;
 
-fn basename(path: &str) -> &str {
-    path.rsplitn(2, '/').next().unwrap_or(path)
-}
-
 fn progname() -> String {
-    basename(env::args().next().expect("no program name?!").as_ref()).to_owned()
+    Path::new(env::args_os().next().expect("no program name?!").as_os_str())
+        .file_stem().expect("no program name?!")
+        .to_string_lossy()
+        .into_owned()
 }
 
 fn print_version() {
-    println!("{}: version 1", progname());
+    println!("dc4 version {}", env!("CARGO_PKG_VERSION"));
+    println!("Copyright (c) 2015-2017 by William R. Fraser");
 }
 
 fn print_usage() {
