@@ -154,12 +154,10 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let args_references: Vec<&str> = args.iter().map(|owned| &owned[..]).collect();
 
-    let inputs: Vec<DCInput>;
-
-    match parse_arguments(&args_references) {
-        Some(x) => inputs = x,
+    let inputs: Vec<DCInput> = match parse_arguments(&args_references) {
+        Some(x) => x,
         None => return,
-    }
+    };
 
     let mut dc = DC4::new(progname());
 

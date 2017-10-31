@@ -95,7 +95,7 @@ fn read_char<R: Read>(r: &mut R) -> Result<Option<char>, String> {
             return Ok(None);
         }
     };
-    if first_byte < 0b10000000 {
+    if first_byte < 0b1000_0000 {
         Ok(Some(first_byte as char))
     } else {
         let nbytes = if first_byte & 0b1110_0000 == 0b1100_0000 {
@@ -647,8 +647,9 @@ impl DC4 {
                 Some(DCValue::Str(s)) => { write!(w, "{}", s).unwrap(); },
                 Some(DCValue::Num(n)) => {
                     let mut int = n.abs();
+                    let divisor = BigReal::from(256);
                     while int.is_positive() {
-                        let div_rem = int.div_rem(&BigReal::from(256), self.scale);
+                        let div_rem = int.div_rem(&divisor, self.scale);
                         let byte = div_rem.1.to_u8().unwrap();
                         write!(w, "{}", byte as char).unwrap();
                         int = div_rem.0;
