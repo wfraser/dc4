@@ -1,6 +1,6 @@
 [root]
 name = "dc4"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "num 0.1.40 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
