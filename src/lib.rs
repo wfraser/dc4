@@ -529,7 +529,7 @@ impl DC4 {
                 + BigInt::from(c.to_digit(16).unwrap())
                 );
 
-            if let Some(mut shift) = self.input_shift_digits.as_mut() {
+            if let Some(shift) = self.input_shift_digits.as_mut() {
                 *shift += 1;
             }
 
