@@ -504,6 +504,11 @@ impl DC4 {
 
         if self.prev_char != '!' {
             self.invert = false;
+        } else if c != '>' && c != '<' && c != '=' {
+            self.prev_char = '\0';
+            self.invert = false;
+            self.in_comment = true; // ignore the rest of the line
+            return Err("running shell commands is not supported".into());
         }
 
         if let Some(other) = return_early {

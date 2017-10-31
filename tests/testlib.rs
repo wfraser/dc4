@@ -180,7 +180,7 @@ fn test_conditional_macro() {
     assert_eq!(dc4_run("1 1 =x 2 f"), "dc4 cargo test: register 'x' (0170) is empty\n2\n");
 
     assert_eq!(dc4_run("1 1 2 3 [[hello]n]sx !=x=x"), "hellohello");
-    assert_eq!(dc4_run("1 2 [[hello]n]sx ! =x"), "");
+    assert_eq!(dc4_run("1 2 [[hello]n]sx !=x"), "hello");
 }
 
 #[test]
@@ -349,4 +349,14 @@ fn test_comment() {
     assert_eq!(dc4_run("1 2 # 3 4 \n 5 6 f"), "6\n5\n2\n1\n");
     assert_eq!(dc4_run("1 2 [# 3 4] 5 6 f"), "6\n5\n# 3 4\n2\n1\n");
     assert_eq!(dc4_run("1 2 # [3\n4] 5\n6 f"), "dc4 cargo test: \']\' (0135) unimplemented\n6\n5\n4\n2\n1\n");
+}
+
+#[test]
+fn test_shell() {
+    // this tests a couple things:
+    //   1. ! followed by space followed by an equality check should NOT get interpreted as a
+    //      negative equality check, it should be recognized as a shell execute command.
+    //   2. the rest of the line should be ignored
+    //   3. that the shell command is not run, obviously
+    assert_eq!(dc4_run("1 2 [[oops]n]sx ! =x [oops2]p\n[hello]p"), "dc4 cargo test: running shell commands is not supported\nhello\n");
 }
