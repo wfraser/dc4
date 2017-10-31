@@ -129,7 +129,7 @@ fn test_invalid_arithmetic() {
     assert_eq!(dc4_run("[shoe] 7 *f"), "dc4 cargo test: non-numeric value\n7\nshoe\n");
     assert_eq!(dc4_run("7[shoe] *f"),  "dc4 cargo test: non-numeric value\nshoe\n7\n");
     assert_eq!(dc4_run("3 0 /f"), "dc4 cargo test: divide by zero\n0\n3\n");
-    assert_eq!(dc4_run("3 0 %f"), "dc4 cargo test: divide by zero\n0\n3\n");
+    assert_eq!(dc4_run("3 0 %f"), "dc4 cargo test: remainder by zero\n0\n3\n");
     assert_eq!(dc4_run("3 0 ~f"), "dc4 cargo test: divide by zero\n0\n3\n");
     assert_eq!(dc4_run("3 2.5 ^f"), "dc4 cargo test: warning: non-zero scale in exponent\n9\n");
 }

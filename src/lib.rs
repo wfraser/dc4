@@ -749,7 +749,7 @@ impl DC4 {
                 let scale = self.scale;
                 self.binary_operator(|a, b| {
                     if b.is_zero() {
-                        Err("divide by zero".into())
+                        Err("remainder by zero".into())
                     }
                     else {
                         Ok(Some(DCValue::Num(a.rem(b, scale))))
@@ -785,6 +785,7 @@ impl DC4 {
                     Ok(Some(DCValue::Num(result)))
                 })?;
                 if warn {
+                    // note: GNU dc doesn't emit any warning here.
                     self.error(w, format_args!("warning: non-zero scale in exponent"));
                 }
             },
