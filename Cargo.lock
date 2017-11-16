@@ -5,7 +5,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "dc4"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "num 0.1.40 (registry+https://github.com/rust-lang/crates.io-index)",
  "winres 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
