@@ -5,16 +5,35 @@
 //
 
 extern crate dc4;
+extern crate regex;
 
 use std::io::Cursor;
 
 fn dc4_run(expr: &str) -> String {
+    /*
     let mut dc = dc4::DC4::new("dc4 cargo test".to_string());
     let mut out = Vec::<u8>::new();
 
     dc.program(&mut Cursor::new(expr.as_bytes()), &mut out);
 
     String::from_utf8(out).unwrap()
+    */
+
+    //let under_test = "/Users/wfraser/src/dc2/dc2";
+    //let under_test = "/Users/wfraser/src/dc3/dc3";
+    let under_test = "dc";
+    let output = std::process::Command::new(under_test)
+        .arg("-e")
+        .arg(expr)
+        .output()
+        .expect("failed to run command");
+    let mut result = String::from_utf8_lossy(&output.stderr);
+    result += String::from_utf8_lossy(&output.stdout);
+
+    regex::Regex::new(r"(?m)^dc: ")
+        .unwrap()
+        .replace_all(&result, "dc4 cargo test: ")
+        .into_owned()
 }
 
 #[test]
