@@ -1,7 +1,7 @@
 //
 // dc4 registers
 //
-// Copyright (c) 2015-2016 by William R. Fraser
+// Copyright (c) 2015-2018 by William R. Fraser
 //
 
 use std::collections::HashMap;

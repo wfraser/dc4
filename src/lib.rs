@@ -1,7 +1,7 @@
 //
 // dc4 :: A Unix dc(1) implementation in Rust
 //
-// Copyright (c) 2015-2017 by William R. Fraser
+// Copyright (c) 2015-2018 by William R. Fraser
 //
 
 #![allow(unknown_lints, redundant_closure_call)]

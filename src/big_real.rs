@@ -1,7 +1,7 @@
 //
 // BigReal :: An arbitrary-precision real number class.
 //
-// Copyright (c) 2016-2017 by William R. Fraser
+// Copyright (c) 2016-2018 by William R. Fraser
 //
 
 use std::cmp::{max, Ordering};

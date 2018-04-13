@@ -4,7 +4,7 @@
 // This is the program entry point.
 // It parses command line arguments and invokes the dc4 library.
 //
-// Copyright (c) 2015-2017 by William R. Fraser
+// Copyright (c) 2015-2018 by William R. Fraser
 //
 
 #![allow(unknown_lints)] // for clippy
@@ -28,7 +28,7 @@ fn progname() -> String {
 
 fn print_version() {
     println!("dc4 version {}", env!("CARGO_PKG_VERSION"));
-    println!("Copyright (c) 2015-2017 by William R. Fraser");
+    println!("Copyright (c) 2015-2018 by William R. Fraser");
 }
 
 fn print_usage() {
@@ -139,9 +139,7 @@ fn parse_arguments<'a>(args: &'a [&'a str])
         }
     }
 
-    for input in bare_file_args {
-        inputs.push(input);
-    }
+    inputs.append(&mut bare_file_args);
 
     if process_stdin {
         inputs.push(DCInput::Stdin);
