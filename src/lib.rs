@@ -653,6 +653,21 @@ impl DC4 {
                 None => return Err("stack empty".into()),
             },
 
+            'a' => match self.stack.pop() {
+                Some(DCValue::Str(mut s)) => {
+                    if let Some((len, _char)) = s.char_indices().nth(1) {
+                        s.truncate(len);
+                    }
+                    self.stack.push(DCValue::Str(s));
+                },
+                Some(DCValue::Num(n)) => {
+                    let mut int = n.to_int();
+                    let (_sign, bytes) = int.to_bytes_le();
+                    self.stack.push(DCValue::Str(format!("{}", bytes[0] as char)));
+                },
+                None => return Err("stack empty".into()),
+            },
+
             'c' => self.stack.clear(),
             'd' => if let Some(value) = self.stack.last().cloned() {
                 self.stack.push(value);

@@ -373,3 +373,11 @@ fn test_char_print_order() {
     assert_eq!(dc4_run("_4276803.99P"), "ABC");
     assert_eq!(dc4_run("16i 303132 P"), "012");
 }
+
+#[test]
+fn test_a() {
+    assert_eq!(dc4_run("4276803af"), "C\n");
+    assert_eq!(dc4_run("[hello]af"), "h\n");
+    assert_eq!(dc4_run("[]af"), "\n");
+    assert_eq!(dc4_run("a"), "dc4 cargo test: stack empty\n");
+}
