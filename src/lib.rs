@@ -646,14 +646,9 @@ impl DC4 {
             'P' => match self.stack.pop() {
                 Some(DCValue::Str(s)) => { write!(w, "{}", s).unwrap(); },
                 Some(DCValue::Num(n)) => {
-                    let mut int = n.abs();
-                    let divisor = BigReal::from(256);
-                    while int.is_positive() {
-                        let div_rem = int.div_rem(&divisor, self.scale);
-                        let byte = div_rem.1.to_u8().unwrap();
-                        write!(w, "{}", byte as char).unwrap();
-                        int = div_rem.0;
-                    }
+                    let mut int = n.to_int();
+                    let (_sign, bytes) = int.to_bytes_be();
+                    w.write_all(&bytes).unwrap();
                 },
                 None => return Err("stack empty".into()),
             },

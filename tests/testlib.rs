@@ -360,3 +360,16 @@ fn test_shell() {
     //   3. that the shell command is not run, obviously
     assert_eq!(dc4_run("1 2 [[oops]n]sx ! =x [oops2]p\n[hello]p"), "dc4 cargo test: running shell commands is not supported\nhello\n");
 }
+
+#[test]
+fn test_char_print_with_scale() {
+    assert_eq!(dc4_run("3k 37 P"), "%");
+}
+
+#[test]
+fn test_char_print_order() {
+    assert_eq!(dc4_run("4276803P"), "ABC");
+    assert_eq!(dc4_run("4276803.99P"), "ABC");
+    assert_eq!(dc4_run("_4276803.99P"), "ABC");
+    assert_eq!(dc4_run("16i 303132 P"), "012");
+}

@@ -261,6 +261,14 @@ impl BigReal {
     pub fn abs(&self) -> BigReal {
         BigReal::new(self.value.abs(), self.shift)
     }
+
+    /// Return the number as a BigInt, with the fractional part truncated off.
+    pub fn to_int(&self) -> BigInt {
+        let mut shifted = self.change_shift(0);
+        shifted.simplify();
+        assert_eq!(0, shifted.shift);
+        shifted.value
+    }
 }
 
 impl PartialOrd for BigReal {
