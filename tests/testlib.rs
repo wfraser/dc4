@@ -25,7 +25,7 @@ fn test_noop() {
 #[test]
 fn test_at() {
     let ver = env!("CARGO_PKG_VERSION_MAJOR").parse::<u64>().unwrap() << 24
-            | env!("CARGO_PKG_VERSION_MINOR").parse::<u64>().unwrap() << 15
+            | env!("CARGO_PKG_VERSION_MINOR").parse::<u64>().unwrap() << 16
             | env!("CARGO_PKG_VERSION_PATCH").parse::<u64>().unwrap();
     assert_eq!(dc4_run("@f"), format!("dc4\n{}\n", ver));
     assert_eq!(dc4_run("@r0+"), ""); // ensure the version is a number
