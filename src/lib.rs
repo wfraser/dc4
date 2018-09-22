@@ -868,7 +868,9 @@ impl DC4 {
 
             'Q' => match self.stack.pop() {
                 Some(DCValue::Num(ref n)) if n.is_positive() => {
-                    return Ok(DCResult::QuitLevels(n.to_u32().unwrap()));
+                    return n.to_u32()
+                        .map(DCResult::QuitLevels)
+                        .ok_or("quit levels out of range (must fit in 32 bits)".into());
                 },
                 Some(_) => return Err("Q command requires a number >= 1".into()),
                 None => return Err("stack empty".into())
