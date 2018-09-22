@@ -393,3 +393,14 @@ fn test_huge_input_hex() {
     let s = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF".to_owned();
     assert_eq!(dc4_run(&("16o 16i ".to_owned() + &s + "f")), s + "\n");
 }
+
+#[test]
+fn test_log2_int() {
+    assert_eq!(dc4_run("0&f"), "dc4 cargo test: logarithm of zero\n");
+    assert_eq!(dc4_run("_1&f"), "dc4 cargo test: logarithm of negative number\n");
+    assert_eq!(dc4_run("1&f"), "0\n");
+    assert_eq!(dc4_run("4294967296&f"), "32\n");
+    assert_eq!(dc4_run("2 41^ &f"), "41\n");
+    assert_eq!(dc4_run("2 41^ 1- &f"), "40\n");
+    assert_eq!(dc4_run("2 2 20^^ &d&f"), "20\n1048576\n");
+}

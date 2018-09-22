@@ -865,6 +865,25 @@ impl DC4 {
                 None => return Err("stack empty".into())
             },
 
+            // dc4 extension: log2
+            '&' => match self.stack.pop() {
+                Some(DCValue::Num(n)) => {
+                    let result = if n.is_negative() {
+                        return Err("logarithm of negative number".into());
+                    } else if n.is_zero() {
+                        return Err("logarithm of zero".into());
+                    } else if self.scale == 0 {
+                        n.log2_int().unwrap()
+                    } else {
+                        return Err("log2 with non-zero scale is not yet implemented".into());
+                        //n.log2(self.scale).unwrap()
+                    };
+                    self.stack.push(DCValue::Num(result));
+                },
+                Some(_) => return Err("logarithm of nonnumeric attempted".into()),
+                None => return Err("stack empty".into())
+            },
+
             'z' => {
                 let depth = self.stack.len();
                 self.stack.push(DCValue::Num(BigReal::from(depth)));

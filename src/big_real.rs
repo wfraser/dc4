@@ -188,6 +188,26 @@ impl BigReal {
         Some(x)
     }
 
+    pub fn log2_int(&self) -> Option<BigReal> {
+        if self.is_negative() || self.is_zero() {
+            return None;
+        }
+
+        let (_sign, bytes) = self.value.to_bytes_le();
+        let msb = bytes.last().unwrap();
+        let msb_log = 8 - msb.leading_zeros() - 1;
+        let result = msb_log + 8 * (bytes.len() as u32 - 1);
+        Some(BigReal::from(result))
+    }
+
+    pub fn log2(&self, _scale: u32) -> Option<BigReal> {
+        if self.is_negative() || self.is_zero() {
+            return None;
+        }
+
+        unimplemented!("log2")
+    }
+
     pub fn modexp(base: &BigReal, exponent: &BigReal, modulus: &BigReal, scale: u32)
             -> Option<BigReal> {
         if exponent.is_negative() || modulus.is_zero() {
