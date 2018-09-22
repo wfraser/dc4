@@ -39,7 +39,7 @@ fn print_usage() {
     println!("  -f FILE | --file=FILE           evaluate contents of file");
     println!("  -h | --help                     display this help and exit");
     println!("  -V | --version                  output version information and exit");
-    println!("");
+    println!();
     println!("Expressions from command line options are processed first, in order, followed");
     println!("by any remaining files listed. A file name of '-' means to read from standard");
     println!("input. An argument of '--' disables further command line option processing and");

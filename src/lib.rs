@@ -155,7 +155,7 @@ macro_rules! capture_errors {
 impl DC4 {
     pub fn new(program_name: String) -> DC4 {
         DC4 {
-            program_name: program_name,
+            program_name,
             stack: Vec::new(),
             registers: DCRegisters::new(),
             scale: 0,
@@ -182,7 +182,7 @@ impl DC4 {
     fn print_stack<W>(&self, w: &mut W) where W: Write {
         for elem in self.stack.iter().rev() {
             self.print_elem(elem, w);
-            write!(w, "\n").unwrap();
+            writeln!(w).unwrap();
         }
     }
 
@@ -311,7 +311,7 @@ impl DC4 {
         let mut tail_recursion_levels = 0;
         while pos < len {
             // extract the char at pos
-            let c = unsafe { macro_text.slice_unchecked(pos, len).chars().next().unwrap() };
+            let c = unsafe { macro_text.get_unchecked(pos .. len).chars().next().unwrap() };
 
             // Seek to the next char boundary.
             loop {
@@ -633,7 +633,7 @@ impl DC4 {
             'p' => match self.stack.last() {
                 Some(elem) => {
                     self.print_elem(elem, w);
-                    write!(w, "\n").unwrap();
+                    writeln!(w).unwrap();
                 },
                 None => return Err("stack empty".into()),
             },
@@ -885,6 +885,6 @@ impl DC4 {
     }
 
     fn error<W>(&self, w: &mut W, args: fmt::Arguments) where W: Write {
-        write!(w, "{}: {}\n", self.program_name, fmt::format(args)).unwrap();
+        writeln!(w, "{}: {}", self.program_name, fmt::format(args)).unwrap();
     }
 }

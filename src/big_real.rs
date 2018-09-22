@@ -380,8 +380,8 @@ bigreal_from_primitive!(isize);
 impl BigRealFrom<BigInt> for BigReal {
     fn new(value: BigInt, shift: u32) -> BigReal {
         BigReal {
-            shift: shift,
-            value: value,
+            shift,
+            value,
         }
     }
 }
@@ -390,7 +390,7 @@ impl From<BigInt> for BigReal {
     fn from(value: BigInt) -> BigReal {
         BigReal {
             shift: 0,
-            value: value,
+            value,
         }
     }
 }
@@ -481,7 +481,12 @@ impl<'a, 'b> Mul<&'b BigReal> for &'a BigReal {
     type Output = BigReal;
 
     fn mul(self, rhs: &BigReal) -> BigReal {
-        BigReal::new(&self.value * &rhs.value, self.shift + rhs.shift)
+        let value = &self.value * &rhs.value;
+
+        #[allow(suspicious_arithmetic_impl)]
+        let shift = self.shift + rhs.shift;
+
+        BigReal::new(value, shift)
     }
 }
 

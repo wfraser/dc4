@@ -23,7 +23,7 @@ impl DCRegisters {
             registers.push(DCRegisterStack::new());
         }
         DCRegisters {
-            registers: registers,
+            registers,
         }
     }
 
@@ -54,10 +54,7 @@ impl DCRegisterStack {
 
     pub fn value(&self) -> Option<&DCValue> {
         match self.stack.last() {
-            Some(reg) => match reg.main_value {
-                Some(ref value) => Some(value),
-                None => None,
-            },
+            Some(reg) => reg.main_value.as_ref(),
             None => None,
         }
     }
