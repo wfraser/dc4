@@ -94,7 +94,7 @@ fn test_invalid_radix() {
         assert_eq!(dc4_run("[bad]i f"), error);
     }
     {
-        let error = "dc4 cargo test: output base must be a number greater than 1\n";
+        let error = "dc4 cargo test: output base must be a number between 2 and 16 (inclusive)\n";
         assert_eq!(dc4_run("1o f"), error);
         assert_eq!(dc4_run("_10o f"), error);
         assert_eq!(dc4_run("[bad]o f"), error);

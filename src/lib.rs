@@ -683,33 +683,39 @@ impl DC4 {
             },
 
             'i' => match self.stack.pop() {
-                Some(DCValue::Num(ref n)) =>
+                Some(DCValue::Num(ref n)) => {
                     match n.to_u32() {
                         Some(radix) if radix >= 2 && radix <= 16 => {
                              self.iradix = radix;
-                        },
-                        _ => return Err("input base must be a number between 2 and 16 (inclusive)".into()),
-                    },
+                        }
+                        Some(_) | None => {
+                            return Err("input base must be a number between 2 and 16 (inclusive)".into());
+                        }
+                    }
+                }
                 Some(DCValue::Str(_)) =>
                     return Err("input base must be a number between 2 and 16 (inclusive)".into()),
                 None => return Err("stack empty".into()),
             },
 
             'o' => match self.stack.pop() {
-                Some(DCValue::Num(ref n)) =>
+                // BigInt::to_str_radix actually supports radix up to 36, but we restrict it to 16
+                // here because those are the only values that will round-trip (because only
+                // 'A'...'F' will be interpreted as numbers.
+                // On the other hand, actual dc supports unlimited output radix, but after 16 it
+                // starts to use a different format.
+                Some(DCValue::Num(n)) => {
                     match n.to_u32() {
-                        Some(radix) if radix >= 2 => {
+                        Some(radix) if radix >= 2 && radix <= 16 => {
                             self.oradix = radix;
-                        },
-                        Some(_) => return Err("output base must be a number greater than 1".into()),
-                        _ => if n.to_i32().is_some() {
-                                return Err("output base must be a number greater than 1".into());
-                            } else {
-                                return Err("error interpreting output base (overflow?)".into());
-                            },
-                    },
-                Some(DCValue::Str(_)) =>
-                    return Err("output base must be a number greater than 1".into()),
+                        }
+                        Some(_) | None => {
+                            return Err("output base must be a number between 2 and 16 (inclusive)".into());
+                        }
+                    }
+                }
+                Some(_) =>
+                    return Err("output base must be a number between 2 and 16 (inclusive)".into()),
                 None => return Err("stack empty".into()),
             },
 
