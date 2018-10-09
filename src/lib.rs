@@ -523,11 +523,9 @@ impl DC4 {
                 self.input_num = Some(BigInt::zero());
             }
 
-            self.input_num = Some(
-                self.input_num.as_ref().unwrap()
-                * BigInt::from(self.iradix)
-                + BigInt::from(c.to_digit(16).unwrap())
-                );
+            let n: &mut BigInt = self.input_num.as_mut().unwrap();
+            (*n) *= self.iradix;
+            (*n) += c.to_digit(16).unwrap();
 
             if let Some(shift) = self.input_shift_digits.as_mut() {
                 *shift += 1;
@@ -552,7 +550,7 @@ impl DC4 {
         if let Some(mut n) = self.input_num.take() {
             //println!("pushing: {:?}", n);
             if self.negative {
-                n = n * BigInt::from(-1);
+                n *= -1;
             }
             let mut real = BigReal::from(n);
             if let Some(shift) = self.input_shift_digits {
@@ -876,7 +874,7 @@ impl DC4 {
                 Some(DCValue::Num(ref n)) if n.is_positive() => {
                     return n.to_u32()
                         .map(DCResult::QuitLevels)
-                        .ok_or("quit levels out of range (must fit in 32 bits)".into());
+                        .ok_or_else(|| "quit levels out of range (must fit in 32 bits)".into());
                 },
                 Some(_) => return Err("Q command requires a number >= 1".into()),
                 None => return Err("stack empty".into())

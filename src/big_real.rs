@@ -21,16 +21,15 @@ pub struct BigReal {
 
 impl BigReal {
     fn change_shift(&self, desired_shift: u32) -> BigReal {
-        let ten = BigInt::from(10);
         let mut result = self.clone();
         if desired_shift > result.shift {
             for _ in 0..(desired_shift - self.shift) {
-                result.value = &result.value * &ten;
+                result.value = &result.value * 10;
             }
         }
         else {
             for _ in 0..(result.shift - desired_shift) {
-                result.value = &result.value / &ten;
+                result.value = &result.value / 10;
             }
         }
         result.shift = desired_shift;
@@ -103,29 +102,27 @@ impl BigReal {
             }
             string_result.push('.');
 
-            let big_radix = BigInt::from(radix);
-
             // start with the part shifted over one place value (because otherwise the first
             // iteration would always yield zero).
-            let mut part = (&self.value - whole.change_shift(self.shift).value).abs() * &big_radix;
+            let mut part = (&self.value - whole.change_shift(self.shift).value).abs() * radix;
 
             // These control when we stop the iteration.
             // When the current place value (in whatever radix) is greater than the amount of the
             // shift (in decimal), we stop.
             let max_place = BigReal::one().change_shift(self.shift).value;
-            let mut place = big_radix.clone();
+            let mut place = BigInt::from(radix);
 
             loop {
                 let div_rem = part.div_rem(&max_place);
 
                 string_result.push_str(&div_rem.0.to_str_radix(radix));
-                part = div_rem.1 * &big_radix;
+                part = div_rem.1 * radix;
 
                 // check if we've reached the appropriate precision
                 if place >= max_place {
                     break;
                 }
-                place = place * &big_radix;
+                place *= radix;
             }
 
             string_result

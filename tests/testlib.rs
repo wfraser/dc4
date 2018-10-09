@@ -381,3 +381,15 @@ fn test_a() {
     assert_eq!(dc4_run("[]af"), "\n");
     assert_eq!(dc4_run("a"), "dc4 cargo test: stack empty\n");
 }
+
+#[test]
+fn test_huge_input_dec() {
+    let s = "123456787901234567890123456789012345678901234567890123456789012345678901234567890".to_owned();
+    assert_eq!(dc4_run(&(s.clone() + "f")), s + "\n");
+}
+
+#[test]
+fn test_huge_input_hex() {
+    let s = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF".to_owned();
+    assert_eq!(dc4_run(&("16o 16i ".to_owned() + &s + "f")), s + "\n");
+}
