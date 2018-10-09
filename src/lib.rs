@@ -78,7 +78,7 @@ impl Into<DCError> for &'static str {
     }
 }
 
-fn read_byte<R: Read>(r: &mut R) -> Result<Option<u8>, std::io::Error> {
+fn read_byte(r: &mut impl Read) -> Result<Option<u8>, std::io::Error> {
     let mut buf = [0u8; 1];
     let n = r.read(&mut buf)?;
     if n == 0 {
@@ -88,7 +88,7 @@ fn read_byte<R: Read>(r: &mut R) -> Result<Option<u8>, std::io::Error> {
     }
 }
 
-fn read_char<R: Read>(r: &mut R) -> Result<Option<char>, String> {
+fn read_char(r: &mut impl Read) -> Result<Option<char>, String> {
     let first_byte: u8 = match read_byte(r).map_err(|e| format!("I/O error: {}", e))? {
         Some(byte) => byte,
         None => {
@@ -123,8 +123,8 @@ fn read_char<R: Read>(r: &mut R) -> Result<Option<char>, String> {
     }
 }
 
-fn loop_over_stream<R, F>(input: &mut R, mut f: F) -> Result<DCResult, DCError>
-        where R: Read, F: FnMut(char) -> DCResult {
+fn loop_over_stream<F>(input: &mut impl Read, mut f: F) -> Result<DCResult, DCError>
+        where F: FnMut(char) -> DCResult {
     // TODO: change this to use input.chars() once Read::chars is stable
     loop {
         match read_char(input) {
@@ -172,14 +172,14 @@ impl DC4 {
         }
     }
 
-    fn print_elem<W>(&self, elem: &DCValue, w: &mut W) where W: Write {
+    fn print_elem(&self, elem: &DCValue, w: &mut impl Write) {
         match *elem {
             DCValue::Num(ref n) => write!(w, "{}", n.to_str_radix(self.oradix).to_uppercase()).unwrap(),
             DCValue::Str(ref s) => write!(w, "{}", s).unwrap(),
         }
     }
 
-    fn print_stack<W>(&self, w: &mut W) where W: Write {
+    fn print_stack(&self, w: &mut impl Write) {
         for elem in self.stack.iter().rev() {
             self.print_elem(elem, w);
             writeln!(w).unwrap();
@@ -303,7 +303,7 @@ impl DC4 {
         })
     }
 
-    pub fn run_macro_str<W: Write>(&mut self, w: &mut W, mut macro_text: String) -> DCResult {
+    pub fn run_macro_str(&mut self, w: &mut impl Write, mut macro_text: String) -> DCResult {
         self.prev_char = '\0';
 
         let mut pos = 0usize;
@@ -371,7 +371,7 @@ impl DC4 {
         DCResult::Continue
     }
 
-    pub fn program<R: Read, W: Write>(&mut self, r: &mut R, w: &mut W) -> DCResult {
+    pub fn program(&mut self, r: &mut impl Read, w: &mut impl Write) -> DCResult {
         //let mut current_text = String::new();
         match loop_over_stream(r, |c| {
             //current_text.push(c);
@@ -393,7 +393,7 @@ impl DC4 {
         }
     }
 
-    fn loop_iteration<W: Write>(&mut self, c: char, w: &mut W) -> Result<DCResult, DCError> {
+    fn loop_iteration(&mut self, c: char, w: &mut impl Write) -> Result<DCResult, DCError> {
         if self.bracket_level > 0 {
             if c == '[' {
                 self.bracket_level += 1;
@@ -892,7 +892,7 @@ impl DC4 {
         Ok(DCResult::Continue)
     }
 
-    fn error<W>(&self, w: &mut W, args: fmt::Arguments) where W: Write {
+    fn error(&self, w: &mut impl Write, args: fmt::Arguments) {
         writeln!(w, "{}: {}", self.program_name, fmt::format(args)).unwrap();
     }
 }
