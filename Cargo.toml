@@ -9,7 +9,7 @@ build = "build.rs"
 [dependencies]
 num = "0.2"
 
-[target.'cfg(windows)'.build-dependencies]
+[target.'cfg(target_env = "msvc")'.build-dependencies]
 winres = "0.1"
 
 [[bin]]

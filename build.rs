@@ -1,7 +1,7 @@
-#[cfg(windows)]
+#[cfg(target_env = "msvc")]
 extern crate winres;
 
-#[cfg(windows)]
+#[cfg(target_env = "msvc")]
 fn main() {
     winres::WindowsResource::new()
         .set("LegalCopyright", concat!("Copyright ", env!("CARGO_PKG_AUTHORS")))
@@ -14,5 +14,5 @@ fn main() {
         });
 }
 
-#[cfg(not(windows))]
+#[cfg(not(target_env = "msvc"))]
 fn main() {}
