@@ -4,8 +4,6 @@
 // Copyright (c) 2015-2018 by William R. Fraser
 //
 
-#![allow(unknown_lints, redundant_closure_call)]
-
 use std::io::{self, Read, Write};
 use std::fmt;
 use std::mem;
@@ -644,8 +642,7 @@ impl DC4 {
             'P' => match self.stack.pop() {
                 Some(DCValue::Str(s)) => { write!(w, "{}", s).unwrap(); },
                 Some(DCValue::Num(n)) => {
-                    let mut int = n.to_int();
-                    let (_sign, bytes) = int.to_bytes_be();
+                    let (_sign, bytes) = n.to_int().to_bytes_be();
                     w.write_all(&bytes).unwrap();
                 },
                 None => return Err("stack empty".into()),
@@ -659,8 +656,7 @@ impl DC4 {
                     self.stack.push(DCValue::Str(s));
                 },
                 Some(DCValue::Num(n)) => {
-                    let mut int = n.to_int();
-                    let (_sign, bytes) = int.to_bytes_le();
+                    let (_sign, bytes) = n.to_int().to_bytes_le();
                     self.stack.push(DCValue::Str(format!("{}", bytes[0] as char)));
                 },
                 None => return Err("stack empty".into()),

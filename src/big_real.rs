@@ -480,7 +480,7 @@ impl<'a, 'b> Mul<&'b BigReal> for &'a BigReal {
     fn mul(self, rhs: &BigReal) -> BigReal {
         let value = &self.value * &rhs.value;
 
-        #[allow(suspicious_arithmetic_impl)]
+        #[allow(clippy::suspicious_arithmetic_impl)]
         let shift = self.shift + rhs.shift;
 
         BigReal::new(value, shift)

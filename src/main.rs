@@ -7,8 +7,6 @@
 // Copyright (c) 2015-2018 by William R. Fraser
 //
 
-#![allow(unknown_lints)] // for clippy
-
 extern crate dc4;
 
 use std::env;
@@ -66,7 +64,7 @@ fn parse_arguments<'a>(args: &'a [&'a str])
     let mut seen_double_dash = false;
 
     let mut skip = 0; // number of args to skip next time around
-    for (i, arg) in args.iter().map(|x| *x).enumerate() {
+    for (i, arg) in args.iter().cloned().enumerate() {
 
         if skip > 0 {
             skip -= 1;
@@ -178,7 +176,6 @@ fn main() {
             },
         };
 
-        #[allow(match_same_arms)]
         match result {
             DCResult::Recursion(_) => unreachable!(),
             DCResult::Terminate(_) => return,

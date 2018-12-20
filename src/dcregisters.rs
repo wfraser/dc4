@@ -19,7 +19,7 @@ pub struct DCRegisters {
 impl DCRegisters {
     pub fn new() -> DCRegisters {
         let mut registers = Vec::with_capacity(MAX_REGISTER + 1);
-        for _ in 0 .. MAX_REGISTER + 1 {
+        for _ in 0 ..= MAX_REGISTER {
             registers.push(DCRegisterStack::new());
         }
         DCRegisters {
