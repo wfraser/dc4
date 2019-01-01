@@ -377,38 +377,48 @@ impl DC4 {
         let mut return_early: Option<DCResult> = Some(DCResult::Continue);
         let invert = self.invert;
         let ok = capture_errors!({ match self.prev_char {
+            // pop the stack and set the given register
             's' => {
                 let value = self.pop_stack()?;
                 self.registers.get_mut(c)?.set(value);
             },
 
+            // load from the given register
             'l' => match self.registers.get(c)?.value() {
                 Some(value) => self.stack.push(value.clone()),
                 None => return Err(format!("register '{}' (0{:o}) is empty", c, c as usize).into()),
             },
 
+            // pop the stack and push onto the given register
             'S' => {
                 let value = self.pop_stack()?;
                 self.registers.get_mut(c)?.push(value);
             },
 
+            // pop from the given register and onto the stack
             'L' => match self.registers.get_mut(c)?.pop() {
                 Some(value) => self.stack.push(value),
                 None => return Err(format!("stack register '{}' (0{:o}) is empty", c, c as usize).into()),
             },
 
+            // execute the given macro if the top of stack is less than the 2nd-to-top
             '<' => if self.binary_predicate(move |a, b| Ok(invert != (b < a)))? {
                 return_early = Some(self.run_macro_reg(c)?);
             },
 
+            // execute the given macro if the top of stack is greater than the 2nd-to-top
             '>' => if self.binary_predicate(move |a, b| Ok(invert != (b > a)))? {
                 return_early = Some(self.run_macro_reg(c)?);
             },
 
+            // execute the given macro if the top two values on the stack are equal
             '=' => if self.binary_predicate(move |a, b| Ok(invert != (b == a)))? {
                 return_early = Some(self.run_macro_reg(c)?);
             },
 
+            // pop 2 values:
+            // top value is an index into the given register array
+            // 2nd-to-top is stored there
             ':' => {
                 if self.stack.len() < 2 {
                     return Err("stack empty".into());
@@ -439,8 +449,9 @@ impl DC4 {
                 }
             },
 
-            // this command also pops the value regardless of whether it's the correct type.
-            ';' => match self.stack.pop() {
+            // pop the top of stack and use as an index into the given register array;
+            // load that value
+            ';' => match self.stack.pop() { // note: regardless of whether it's the correct type.
                 Some(DCValue::Num(ref index)) if !index.is_negative() => {
                     let value = (*self.registers.get(c)?.array_load(index)).clone();
                     self.stack.push(value);
@@ -532,8 +543,11 @@ impl DC4 {
         match c {
             ' '|'\t'|'\r'|'\n' => (), // ignore whitespace
 
+            // invert the condition of '<', '>', or '=' (which must come next)
+            // also used by standard dc to run shell commands, which we don't do
             '!' => { self.invert = true; },
 
+            // number decimal point. In this context, it begins a number input.
             '.' => {
                 self.input_shift_digits = Some(0);
                 self.input_num = Some(BigInt::from(0));
@@ -541,8 +555,10 @@ impl DC4 {
 
             's'|'l'|'S'|'L'|'>'|'<'|'='|':'|';' => {}, // then handled above next time around.
 
+            // begin a negative number
             '_' => self.negative = true,
 
+            // read and execute a line from standard input
             '?' => {
                 let mut line = String::new();
                 if let Err(e) = io::stdin().read_line(&mut line) {
@@ -574,10 +590,13 @@ impl DC4 {
                 self.stack.push(DCValue::Str("dc4".to_owned()));
             },
 
+            // begin a string
             '[' => self.bracket_level += 1,
 
+            // print the whole stack, with newlines
             'f' => self.print_stack(w),
 
+            // print the top of the stack with a newline
             'p' => match self.stack.last() {
                 Some(elem) => {
                     self.print_elem(elem, w);
@@ -586,11 +605,15 @@ impl DC4 {
                 None => return Err("stack empty".into()),
             },
 
+            // pop the top of the stack and print it without a newline
             'n' => match self.stack.pop() {
                 Some(elem) => self.print_elem(&elem, w),
                 None => return Err("stack empty".into()),
             },
 
+            // pop the top of the stack and:
+            // if it is a string, print it
+            // if it is a number, interpret it as a base-256 byte stream and write those bytes
             'P' => match self.stack.pop() {
                 Some(DCValue::Str(s)) => { write!(w, "{}", s).unwrap(); },
                 Some(DCValue::Num(n)) => {
@@ -600,6 +623,9 @@ impl DC4 {
                 None => return Err("stack empty".into()),
             },
 
+            // pop the top of the stack and:
+            // if it is a string, push the first character of it back
+            // if it is a number, push the low-order byte of it back as a string
             'a' => match self.stack.pop() {
                 Some(DCValue::Str(mut s)) => {
                     if let Some((len, _char)) = s.char_indices().nth(1) {
@@ -614,10 +640,15 @@ impl DC4 {
                 None => return Err("stack empty".into()),
             },
 
+            // clear the stack
             'c' => self.stack.clear(),
+
+            // duplicate the top value of the stack
             'd' => if let Some(value) = self.stack.last().cloned() {
                 self.stack.push(value);
             },
+
+            // swap the top two elements on the stack
             'r' => if self.stack.len() >= 2 {
                 let a = self.stack.pop().unwrap();
                 let b = self.stack.pop().unwrap();
@@ -628,6 +659,7 @@ impl DC4 {
                 return Err("stack empty".into());
             },
 
+            // set the input radix
             'i' => match self.stack.pop() {
                 Some(DCValue::Num(ref n)) => {
                     match n.to_u32() {
@@ -644,6 +676,7 @@ impl DC4 {
                 None => return Err("stack empty".into()),
             },
 
+            // set the output radix
             'o' => match self.stack.pop() {
                 // BigInt::to_str_radix actually supports radix up to 36, but we restrict it to 16
                 // here because those are the only values that will round-trip (because only
@@ -665,6 +698,7 @@ impl DC4 {
                 None => return Err("stack empty".into()),
             },
 
+            // set the scale / precision
             'k' => match self.stack.pop() {
                 Some(DCValue::Num(ref n)) =>
                     match n.to_u32() {
@@ -682,8 +716,13 @@ impl DC4 {
                 None => return Err("stack empty".into()),
             },
 
+            // push the current input radix onto the stack
             'I' => self.stack.push(DCValue::Num(BigReal::from(self.iradix))),
+
+            // push the current output radix onto the stack
             'O' => self.stack.push(DCValue::Num(BigReal::from(self.oradix))),
+
+            // push the current scale / precision onto the stack
             'K' => self.stack.push(DCValue::Num(BigReal::from(self.scale))),
 
             // pop top and execute as macro
@@ -691,9 +730,16 @@ impl DC4 {
                 return Ok(DCResult::Recursion(string));
             },
 
+            // add the top two values of the stack
             '+' => self.binary_operator(|a, b| Ok(Some(DCValue::Num(a + b))))?,
+
+            // subtract the top value from the 2nd-to-top value of the stack
             '-' => self.binary_operator(|a, b| Ok(Some(DCValue::Num(a - b))))?,
+
+            // multiply the top two values of the stack
             '*' => self.binary_operator(|a, b| Ok(Some(DCValue::Num(a * b))))?,
+
+            // divide the 2nd-to-top value of the stack by the top value of the stack
             '/' => {
                 let scale = self.scale;
                 self.binary_operator(|a, b| {
@@ -813,11 +859,24 @@ impl DC4 {
                 None => return Err("stack empty".into())
             },
 
+            // calculate the number of digits past the decimal point, or zero if string
+            'X' => {
+                return Err("unimplemented".into());
+            }
+
+            // calculate the number of decimal digits (or characters if string)
+            // does not count any leading zeroes, even if they are after the decimal point
+            'Z' => {
+                return Err("unimplemented".into());
+            }
+
+            // push the current stack depth
             'z' => {
                 let depth = self.stack.len();
                 self.stack.push(DCValue::Num(BigReal::from(depth)));
             },
 
+            // quit a specified number of recursion levels (but never exit)
             'Q' => match self.stack.pop() {
                 Some(DCValue::Num(ref n)) if n.is_positive() => {
                     return n.to_u32()
@@ -828,6 +887,7 @@ impl DC4 {
                 None => return Err("stack empty".into())
             },
 
+            // quit the current scope and its parent, possibly exiting
             'q' => return Ok(DCResult::Terminate(2)),
 
             // catch-all for unhandled characters
