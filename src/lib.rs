@@ -860,15 +860,27 @@ impl DC4 {
             },
 
             // calculate the number of digits past the decimal point, or zero if string
-            'X' => {
-                return Err("unimplemented".into());
-            }
+            'X' => match self.stack.pop() {
+                Some(DCValue::Num(n)) => {
+                    self.stack.push(DCValue::Num(BigReal::from(n.num_frx_digits())));
+                }
+                Some(DCValue::Str(_)) => {
+                    self.stack.push(DCValue::Num(BigReal::zero()));
+                }
+                None => return Err("stack empty".into())
+            },
 
             // calculate the number of decimal digits (or characters if string)
             // does not count any leading zeroes, even if they are after the decimal point
-            'Z' => {
-                return Err("unimplemented".into());
-            }
+            'Z' => match self.stack.pop() {
+                Some(DCValue::Num(n)) => {
+                    self.stack.push(DCValue::Num(BigReal::from(n.num_digits())));
+                }
+                Some(DCValue::Str(s)) => {
+                    self.stack.push(DCValue::Num(BigReal::from(s.len())));
+                }
+                None => return Err("stack empty".into())
+            },
 
             // push the current stack depth
             'z' => {

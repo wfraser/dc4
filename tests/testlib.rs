@@ -399,3 +399,21 @@ fn test_huge_input_hex() {
     let s = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF".to_owned();
     assert_eq!(dc4_run(("16o 16i ".to_owned() + &s + "f").as_bytes()), s + "\n");
 }
+
+#[test]
+fn test_frx_digit_count() {
+    assert_eq!(dc4_run(b".000450Xf"), "6\n");
+    assert_eq!(dc4_run(b"123.000450Xf"), "6\n");
+    assert_eq!(dc4_run(b"123.000450 10000000* Xf"), "6\n");
+    assert_eq!(dc4_run(b"[spaghetti]Xf"), "0\n");
+    assert_eq!(dc4_run(b"Xf"), "dc4 cargo test: stack empty\n");
+}
+
+#[test]
+fn test_digit_count() {
+    assert_eq!(dc4_run(b".000450Zf"), "3\n");
+    assert_eq!(dc4_run(b"123.000450Zf"), "9\n");
+    assert_eq!(dc4_run(b"123.000450 10000000* Zf"), "16\n");
+    assert_eq!(dc4_run(b"[spoopadoop]Zf"), "10\n");
+    assert_eq!(dc4_run(b"Zf"), "dc4 cargo test: stack empty\n");
+}

@@ -56,6 +56,14 @@ impl BigReal {
         self.shift = shift;
     }
 
+    pub fn num_frx_digits(&self) -> u32 {
+        self.shift
+    }
+
+    pub fn num_digits(&self) -> u32 {
+        self.value.to_str_radix(10).len() as u32
+    }
+
     pub fn to_str_radix(&self, radix: u32) -> String {
         if self.shift == 0 {
             self.value.to_str_radix(radix)
