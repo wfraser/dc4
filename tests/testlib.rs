@@ -308,10 +308,15 @@ fn test_utf8() {
     assert_eq!(dc4_run("[🎅]s🎅"), "dc4 cargo test: invalid register \'🎅\' (127877); must be in range 0 - 255\n");
     assert_eq!(
         dc4_run(unsafe { std::str::from_utf8_unchecked(b"42 [\xc3\x28] f") }),
-        "dc4 cargo test: error reading from input: unable to parse [195, 40] as UTF-8: invalid utf-8 sequence of 1 bytes from index 0\n");
+        "dc4 cargo test: invalid UTF-8 in input: [c3]\n\u{FFFD}\x28\n42\n");
     assert_eq!(
-        dc4_run(unsafe { std::str::from_utf8_unchecked(b"\xf8\xa1\xa1\xa1\xa1") }),
-        "dc4 cargo test: error reading from input: unable to parse [248] as UTF-8: invalid utf-8 sequence of 1 bytes from index 0\n");
+        dc4_run(unsafe { std::str::from_utf8_unchecked(b"[\xf8\xa1\xa1\xa1\xa1]f") }),
+        "dc4 cargo test: invalid UTF-8 in input: [f8]\n\
+         dc4 cargo test: invalid UTF-8 in input: [a1]\n\
+         dc4 cargo test: invalid UTF-8 in input: [a1]\n\
+         dc4 cargo test: invalid UTF-8 in input: [a1]\n\
+         dc4 cargo test: invalid UTF-8 in input: [a1]\n\
+         \u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}\n");
 }
 
 #[test]

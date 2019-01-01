@@ -4,13 +4,15 @@
 // Copyright (c) 2015-2018 by William R. Fraser
 //
 
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Write, BufReader};
 use std::fmt;
 use std::mem;
 
 extern crate num;
 use num::traits::{ToPrimitive, Zero};
 use num::BigInt;
+
+extern crate utf8;
 
 mod big_real;
 use big_real::BigReal;
@@ -74,71 +76,6 @@ impl Into<DCError> for &'static str {
     fn into(self) -> DCError {
         DCError::StaticMessage(self)
     }
-}
-
-fn read_byte(r: &mut impl Read) -> Result<Option<u8>, std::io::Error> {
-    let mut buf = [0u8; 1];
-    let n = r.read(&mut buf)?;
-    if n == 0 {
-        Ok(None)
-    } else {
-        Ok(Some(buf[0]))
-    }
-}
-
-fn read_char(r: &mut impl Read) -> Result<Option<char>, String> {
-    let first_byte: u8 = match read_byte(r).map_err(|e| format!("I/O error: {}", e))? {
-        Some(byte) => byte,
-        None => {
-            return Ok(None);
-        }
-    };
-    if first_byte < 0b1000_0000 {
-        Ok(Some(first_byte as char))
-    } else {
-        let nbytes = if first_byte & 0b1110_0000 == 0b1100_0000 {
-            2
-        } else if first_byte & 0b1111_0000 == 0b1110_0000 {
-            3
-        } else if first_byte & 0b1111_1000 == 0b1111_0000 {
-            4
-        } else {
-            // Illegal leading byte for UTF-8. Don't read any continuation bytes; just let
-            // str::from_utf8 return an error.
-            1
-        };
-        let mut bytes = Vec::with_capacity(nbytes);
-        bytes.push(first_byte);
-        for _ in 1..nbytes {
-            match read_byte(r).map_err(|e| format!("I/O error: {}", e))? {
-                Some(byte) => bytes.push(byte),
-                None => break
-            }
-        }
-        let s = std::str::from_utf8(&bytes)
-                         .map_err(|e| format!("unable to parse {:?} as UTF-8: {}", bytes, e))?;
-        Ok(Some(s.chars().next().unwrap()))
-    }
-}
-
-fn loop_over_stream<F>(input: &mut impl Read, mut f: F) -> Result<DCResult, DCError>
-        where F: FnMut(char) -> DCResult {
-    // TODO: change this to use input.chars() once Read::chars is stable
-    loop {
-        match read_char(input) {
-            Ok(Some(c)) => {
-                match f(c as char) {
-                    DCResult::Continue => (), // next loop iteration
-                    other              => return Ok(other)
-                }
-            },
-            Ok(None) => break,
-            Err(err) => {
-                return Err(format!("error reading from input: {}", err).into());
-            }
-        }
-    }
-    Ok(DCResult::Continue)
 }
 
 // Acts like a try block by running code in a closure.
@@ -370,23 +307,38 @@ impl DC4 {
     }
 
     pub fn program(&mut self, r: &mut impl Read, w: &mut impl Write) -> DCResult {
-        //let mut current_text = String::new();
-        match loop_over_stream(r, |c| {
-            //current_text.push(c);
-            match self.loop_iteration(c, w) {
-                Ok(DCResult::Recursion(text)) => self.run_macro_str(w, text),
-                Err(msg) => {
-                    //println!("at \"{}\"", current_text);
-                    self.error(w, format_args!("{}", msg));
-                    DCResult::Continue
-                },
-                Ok(other) => other,
-            }
-        }) {
-            Ok(result) => result,
-            Err(msg) => {
-                self.error(w, format_args!("{}", msg));
-                DCResult::Terminate(0)
+        let mut input_decoder = utf8::BufReadDecoder::new(BufReader::new(r));
+        loop {
+            let buf: &str = match input_decoder.next_strict() {
+                Some(Ok(s)) => s,
+                None => return DCResult::Continue,
+                Some(Err(utf8::BufReadDecoderError::Io(err))) => {
+                    self.error(w, format_args!("error reading from input: {}", err));
+                    return DCResult::Terminate(0);
+                }
+                Some(Err(utf8::BufReadDecoderError::InvalidByteSequence(bytes))) => {
+                    // Emit error and continue with substitution character.
+                    self.error(w, format_args!("invalid UTF-8 in input: {:x?}", bytes));
+                    "\u{FFFD}"
+                }
+            };
+
+            for c in buf.chars() {
+                match self.loop_iteration(c, w) {
+                    Ok(DCResult::Continue) => (), // next loop iteration
+                    Ok(DCResult::Recursion(text)) => {
+                        match self.run_macro_str(w, text) {
+                            DCResult::Continue => (), // next loop iteration
+                            other => return other,
+                        }
+                    }
+                    Err(msg) => {
+                        self.error(w, format_args!("{}", msg));
+                    }
+                    Ok(other) => {
+                        return other;
+                    }
+                }
             }
         }
     }
