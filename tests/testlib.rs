@@ -358,6 +358,15 @@ fn test_comment() {
 }
 
 #[test]
+fn test_odd_registers() {
+    assert_eq!(dc4_run(b"[[foo]p]s# 0 0=#"), "foo\n"); // use the register named '#', not comment
+    assert_eq!(dc4_run(b"[[foo]p]s\n 0 0=\n"), "foo\n"); // whitespace counts for once
+    assert_eq!(dc4_run(b"[[foo]p]s 0 0= "), "foo\n"); // ditto
+    assert_eq!(dc4_run(b"[[foo]p]s! 0 0=!"), "foo\n"); // don't trigger shell command parsing
+    assert_eq!(dc4_run(b"[[foo]p]s< 0 0=<"), "foo\n");
+}
+
+#[test]
 fn test_shell() {
     // this tests a couple things:
     //   1. ! followed by space followed by an equality check should NOT get interpreted as a

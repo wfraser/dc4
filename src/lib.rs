@@ -363,16 +363,6 @@ impl DC4 {
             return Ok(DCResult::Continue);
         }
 
-        if self.in_comment {
-            if c == '\n' {
-                self.in_comment = false;
-            }
-            return Ok(DCResult::Continue);
-        } else if c == '#' {
-            self.in_comment = true;
-            return Ok(DCResult::Continue);
-        }
-
         // operations that need one more character to be read:
         let mut return_early: Option<DCResult> = Some(DCResult::Continue);
         let invert = self.invert;
@@ -478,6 +468,16 @@ impl DC4 {
             return Ok(other);
         }
         ok?;
+
+        if self.in_comment {
+            if c == '\n' {
+                self.in_comment = false;
+            }
+            return Ok(DCResult::Continue);
+        } else if c == '#' {
+            self.in_comment = true;
+            return Ok(DCResult::Continue);
+        }
 
         if (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') {
             if self.input_num.is_none() {
