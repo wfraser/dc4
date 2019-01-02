@@ -417,3 +417,27 @@ fn test_digit_count() {
     assert_eq!(dc4_run(b"[spoopadoop]Zf"), "10\n");
     assert_eq!(dc4_run(b"Zf"), "dc4 cargo test: stack empty\n");
 }
+
+#[test]
+fn test_rotate() {
+    assert_eq!(dc4_run(b"Rf"), "dc4 cargo test: stack empty\n");
+    assert_eq!(dc4_run(b"999Rf"), "");
+
+    assert_eq!(dc4_run(b"1 2 3 4 5 0R f"), "5\n4\n3\n2\n1\n");
+    assert_eq!(dc4_run(b"1 2 3 4 5 1R f"), "5\n4\n3\n2\n1\n");
+    assert_eq!(dc4_run(b"1 2 3 4 5 2R f"), "4\n5\n3\n2\n1\n");
+    assert_eq!(dc4_run(b"1 2 3 4 5 3R f"), "3\n5\n4\n2\n1\n");
+    assert_eq!(dc4_run(b"1 2 3 4 5 4R f"), "2\n5\n4\n3\n1\n");
+    assert_eq!(dc4_run(b"1 2 3 4 5 5R f"), "1\n5\n4\n3\n2\n");
+    assert_eq!(dc4_run(b"1 2 3 4 5 6R f"), "1\n5\n4\n3\n2\n");
+
+    assert_eq!(dc4_run(b"1 2 3 4 5 _1R f"), "5\n4\n3\n2\n1\n");
+    assert_eq!(dc4_run(b"1 2 3 4 5 _2R f"), "4\n5\n3\n2\n1\n");
+    assert_eq!(dc4_run(b"1 2 3 4 5 _3R f"), "4\n3\n5\n2\n1\n");
+    assert_eq!(dc4_run(b"1 2 3 4 5 _4R f"), "4\n3\n2\n5\n1\n");
+    assert_eq!(dc4_run(b"1 2 3 4 5 _5R f"), "4\n3\n2\n1\n5\n");
+    assert_eq!(dc4_run(b"1 2 3 4 5 _6R f"), "4\n3\n2\n1\n5\n");
+
+    assert_eq!(dc4_run(b"1 2 2 33^ R f"), "dc4 cargo test: rotation value must fit in 32 bits\n2\n1\n");
+    assert_eq!(dc4_run(b"1 2 _2 33^ R f"), "dc4 cargo test: rotation value must fit in 32 bits\n2\n1\n");
+}

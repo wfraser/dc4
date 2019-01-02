@@ -659,6 +659,36 @@ impl DC4 {
                 return Err("stack empty".into());
             },
 
+            // rotate the top N elements of the stack, where N is given by the current top.
+            // if N is negative, rotate backwards.
+            'R' => match self.stack.pop() {
+                Some(_) if self.stack.len() < 2 => (), // do nothing
+                Some(DCValue::Num(n)) => {
+                    let n = match n.to_i32() {
+                        Some(n) => n,
+                        None => {
+                            return Err("rotation value must fit in 32 bits".into());
+                        }
+                    };
+
+                    let start = match n.abs() as usize {
+                        0 | 1                       => self.stack.len() - 1,
+                        n if n >= self.stack.len()  => 0,
+                        other                       => self.stack.len() - other,
+                    };
+
+                    if n > 0 {
+                        self.stack[start..].rotate_left(1);
+                    } else {
+                        self.stack[start..].rotate_right(1);
+                    }
+                }
+                Some(DCValue::Str(_)) => (), // do nothing
+                None => {
+                    return Err("stack empty".into());
+                }
+            },
+
             // set the input radix
             'i' => match self.stack.pop() {
                 Some(DCValue::Num(ref n)) => {
