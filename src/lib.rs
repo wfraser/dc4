@@ -700,18 +700,19 @@ impl DC4 {
 
             // set the scale / precision
             'k' => match self.stack.pop() {
-                Some(DCValue::Num(ref n)) =>
+                Some(DCValue::Num(n)) => {
+                    if n.is_negative() {
+                        return Err("scale must be a nonnegative number".into());
+                    }
                     match n.to_u32() {
                         Some(scale) => {
                             self.scale = scale;
                         },
-                        _ => if n.to_i32().is_some() {
-                                return Err("scale must be a nonnegative number".into());
-                            }
-                            else {
-                                return Err("error interpreting scale (overflow?)".into());
-                            },
-                    },
+                        None => {
+                            return Err("scale must fit into 32 bits".into());
+                        }
+                    }
+                }
                 Some(DCValue::Str(_)) => return Err("scale must be a nonnegative number".into()),
                 None => return Err("stack empty".into()),
             },
