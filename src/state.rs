@@ -314,7 +314,7 @@ impl DC4 {
                 return Err(format!("{:?} (0{:o}) unimplemented", c, c as u32).into());
             }
 
-            _ => unimplemented!("{:?}", action)
+            _ => unimplemented!("{:?}", action) // FIXME: remove when done
         }
         Ok(DCResult::Continue)
     }

@@ -211,7 +211,6 @@ impl ParseState {
                 'X' => (self, Some(Action::NumFrxDigits)),
                 'z' => (self, Some(Action::StackDepth)),
 
-                '!' => (ParseState::ShellExec(String::new()), None),
                 '#' => (ParseState::Comment, None),
                 ':' => (ParseState::TwoChar(RegisterAction::StoreRegArray), None),
                 ';' => (ParseState::TwoChar(RegisterAction::LoadRegArray), None),
@@ -267,7 +266,6 @@ impl ParseState {
                 '>' => (ParseState::TwoChar(RegisterAction::Le), None),
                 '<' => (ParseState::TwoChar(RegisterAction::Ge), None),
                 '=' => (ParseState::TwoChar(RegisterAction::Ne), None),
-
                 _ => (ParseState::ShellExec(String::new()), None),
             }
             ParseState::TwoChar(action) => match c as u32 {
