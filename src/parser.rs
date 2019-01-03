@@ -10,6 +10,8 @@ pub struct Parser {
 
 #[derive(Debug)]
 pub enum Action {
+    // Where possible, keep things ordered like in the GNU dc man page.
+
     PushNumber(String),
     PushString(String),
 
@@ -123,7 +125,7 @@ impl Parser {
     }
 
     pub fn step(&mut self, c: &mut Option<char>) -> Option<Action> {
-        debug!("current state: {:?}", self.state);
+        debug!("--- current state: {:?}", self.state);
         let c = match self.state {
             Some(ParseState::Unused(c)) => {
                 debug!("reusing unused input: {:?}", c);
@@ -153,22 +155,13 @@ impl ParseState {
     pub fn next(self, c: char) -> (Self, Option<Action>) {
         match self {
             ParseState::Start => match c {
+                // Where possible, keep things ordered like in the GNU dc man page.
+
                 ' ' | '\t' | '\r' | '\n' =>
                     (self, None),
+
                 '_' | '0' ... '9' | 'A' ... 'F' | '.' =>
                     (ParseState::Number { buf: c.to_string(), decimal: c == '.' }, None),
-
-                's' => (ParseState::TwoChar(RegisterAction::Store), None),
-                'l' => (ParseState::TwoChar(RegisterAction::Load), None),
-                'S' => (ParseState::TwoChar(RegisterAction::PushRegStack), None),
-                'L' => (ParseState::TwoChar(RegisterAction::PopRegStack), None),
-                '>' => (ParseState::TwoChar(RegisterAction::Gt), None),
-                '<' => (ParseState::TwoChar(RegisterAction::Lt), None),
-                '=' => (ParseState::TwoChar(RegisterAction::Eq), None),
-
-                '!' => (ParseState::Bang, None),
-                '[' => (ParseState::String { buf: String::new(), level: 0 }, None),
-                '#' => (ParseState::Comment, None),
 
                 'p' => (self, Some(Action::Print)),
                 'n' => (self, Some(Action::PrintNoNewlinePop)),
@@ -190,6 +183,11 @@ impl ParseState {
                 'r' => (self, Some(Action::Swap)),
                 'R' => (self, Some(Action::Rotate)),
                 
+                's' => (ParseState::TwoChar(RegisterAction::Store), None),
+                'l' => (ParseState::TwoChar(RegisterAction::Load), None),
+                'S' => (ParseState::TwoChar(RegisterAction::PushRegStack), None),
+                'L' => (ParseState::TwoChar(RegisterAction::PopRegStack), None),
+
                 'i' => (self, Some(Action::SetInputRadix)),
                 'o' => (self, Some(Action::SetOutputRadix)),
                 'k' => (self, Some(Action::SetPrecision)),
@@ -197,13 +195,27 @@ impl ParseState {
                 'O' => (self, Some(Action::LoadOutputRadix)),
                 'K' => (self, Some(Action::LoadPrecision)),
 
+                '[' => (ParseState::String { buf: String::new(), level: 0 }, None),
                 'a' => (self, Some(Action::Asciify)),
                 'x' => (self, Some(Action::ExecuteMacro)),
 
+                '!' => (ParseState::Bang, None),
+                '>' => (ParseState::TwoChar(RegisterAction::Gt), None),
+                '<' => (ParseState::TwoChar(RegisterAction::Lt), None),
+                '=' => (ParseState::TwoChar(RegisterAction::Eq), None),
                 '?' => (self, Some(Action::Input)),
                 'q' => (self, Some(Action::Quit)),
                 'Q' => (self, Some(Action::QuitLevels)),
                 
+                'Z' => (self, Some(Action::NumDigits)),
+                'X' => (self, Some(Action::NumFrxDigits)),
+                'z' => (self, Some(Action::StackDepth)),
+
+                '!' => (ParseState::ShellExec(String::new()), None),
+                '#' => (ParseState::Comment, None),
+                ':' => (ParseState::TwoChar(RegisterAction::StoreRegArray), None),
+                ';' => (ParseState::TwoChar(RegisterAction::LoadRegArray), None),
+
                 '@' => (self, Some(Action::Version)),
 
                 _ => (self, Some(Action::Unimplemented(c))),

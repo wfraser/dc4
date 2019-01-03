@@ -108,16 +108,210 @@ impl DC4 {
                 writeln!(w).unwrap();
             }
             Action::PrintNoNewlinePop => {
-                match self.stack.pop() {
-                    Some(v) => self.print_elem(&v, w),
-                    None => return Err("stack empty".into())
-                }
+                let v = self.pop_top()?;
+                self.print_elem(&v, w);
             }
             Action::PrintStack => {
                 for value in self.stack.iter().rev() {
                     self.print_elem(value, w);
                     writeln!(w).unwrap();
                 }
+            }
+            Action::Add => self.binary_operator(|a, b| Ok(a + b))?,
+            Action::Sub => self.binary_operator(|a, b| Ok(a - b))?,
+            Action::Mul => self.binary_operator(|a, b| Ok(a * b))?,
+            Action::Div => {
+                let scale = self.scale;
+                self.binary_operator(|a, b| {
+                    if b.is_zero() {
+                        Err("divide by zero".into())
+                    } else {
+                        Ok(a.div(b, scale))
+                    }
+                })?
+            }
+            Action::Rem => {
+                let scale = self.scale;
+                self.binary_operator(|a, b| {
+                    if b.is_zero() {
+                        Err("remainder by zero".into())
+                    } else {
+                        Ok(a.rem(b, scale))
+                    }
+                })?
+            }
+            Action::DivRem => {
+                let scale = self.scale;
+                let (n1, n2) = {
+                    let (a, b) = self.get_two_ints()?;
+                    if b.is_zero() {
+                        return Err("divide by zero".into());
+                    }
+                    a.div_rem(b, scale)
+                };
+                self.stack.pop();
+                self.stack.pop();
+                self.stack.push(DCValue::Num(n1));
+                self.stack.push(DCValue::Num(n2));
+            }
+            Action::Exp => {
+                let mut warn = false;
+                let scale = self.scale;
+                self.binary_operator(|base, exponent| {
+                    if !exponent.is_integer() {
+                        // have to print the warning outside the closure
+                        warn = true;
+                    }
+
+                    Ok(base.pow(exponent, scale))
+                })?;
+                if warn {
+                    // note: GNU dc doesn't emit any warning here.
+                    self.error(w, format_args!("warning: non-zero scale in exponent"));
+                }
+            }
+            Action::ModExp => {
+                if self.stack.len() >= 3 {
+                    for (i, value) in self.stack[self.stack.len() - 3..].iter().enumerate() {
+                        match *value {
+                            DCValue::Num(ref n) => {
+                                if i == 1 && n.is_negative() {
+                                    return Err("negative exponent".into());
+                                } else if i == 2 && n.is_zero() {
+                                    return Err("remainder by zero".into());
+                                }
+                            },
+                            _ => return Err("non-numeric value".into())
+                        }
+                    }
+                } else {
+                    return Err("stack empty".into());
+                }
+
+                let unwrap_int = |value| match value {
+                    DCValue::Num(n) => n,
+                    _ => unreachable!(), // already checked above
+                };
+                let modulus = self.stack.pop().map(unwrap_int).unwrap();
+                let exponent = self.stack.pop().map(unwrap_int).unwrap();
+                let base = self.stack.pop().map(unwrap_int).unwrap();
+
+                if !base.is_integer() {
+                    self.error(w, format_args!("warning: non-zero scale in base"));
+                }
+                if !exponent.is_integer() {
+                    self.error(w, format_args!("warning: non-zero scale in exponent"));
+                }
+                if !modulus.is_integer() {
+                    self.error(w, format_args!("warning: non-zero scale in modulus"));
+                }
+
+                let result = BigReal::modexp(&base, &exponent, &modulus, self.scale).unwrap();
+                self.stack.push(DCValue::Num(result));
+            }
+            Action::Sqrt => match self.pop_top()? {
+                DCValue::Num(n) => {
+                    if n.is_negative() {
+                        return Err("square root of negative number".into());
+                    } else if n.is_zero() {
+                        self.stack.push(DCValue::Num(n));
+                    } else {
+                        let x = n.sqrt(self.scale).unwrap();
+                        self.stack.push(DCValue::Num(x));
+                    }
+                }
+                DCValue::Str(_) => return Err("square root of nonnumeric attempted".into()),
+            }
+            Action::ClearStack => self.stack.clear(),
+            Action::Dup => if let Some(value) = self.stack.last().cloned() {
+                self.stack.push(value);
+            }
+            Action::Swap => {
+                if self.stack.len() >= 2 {
+                    let a = self.stack.len() - 1;
+                    let b = self.stack.len() - 2;
+                    self.stack.swap(a, b);
+                } else {
+                    return Err("stack empty".into());
+                }
+            }
+            //Action::Rotate
+            Action::SetInputRadix => match self.pop_top()? {
+                DCValue::Num(n) => {
+                    match n.to_u32() {
+                        Some(radix) if radix >= 2 && radix <= 16 => {
+                            self.iradix = radix;
+                        }
+                        Some(_) | None => {
+                            return Err("input base must be a number between 2 and 16 (inclusive)".into());
+                        }
+                    }
+                }
+                DCValue::Str(_) => {
+                    return Err("input base must be a number between 2 and 16 (inclusive)".into());
+                }
+            }
+            Action::SetOutputRadix => match self.pop_top()? {
+                // BigInt::to_str_radix actually supports radix up to 36, but we restrict it to 16
+                // here because those are the only values that will round-trip (because only
+                // 'A'...'F' will be interpreted as numbers.
+                // On the other hand, actual dc supports unlimited output radix, but after 16 it
+                // starts to use a different format.
+                DCValue::Num(n) => {
+                    match n.to_u32() {
+                        Some(radix) if radix >= 2 && radix <= 16 => {
+                            self.oradix = radix;
+                        }
+                        Some(_) | None => {
+                            return Err("output base must be a number between 2 and 16 (inclusive)".into());
+                        }
+                    }
+                }
+                DCValue::Str(_) => {
+                    return Err("output base must be a number between 2 and 16 (inclusive)".into());
+                }
+            }
+            Action::SetPrecision => match self.pop_top()? {
+                DCValue::Num(n) => {
+                    if n.is_negative() {
+                        return Err("scale must be a nonnegative number".into());
+                    }
+                    match n.to_u32() {
+                        Some(scale) => {
+                            self.scale = scale;
+                        }
+                        None => {
+                            return Err("scale must fit into 32 bits".into());
+                        }
+                    }
+                }
+                DCValue::Str(_) => {
+                    return Err("scale must be a nonnegative number".into());
+                }
+            }
+            Action::LoadInputRadix => self.stack.push(DCValue::Num(BigReal::from(self.iradix))),
+            Action::LoadOutputRadix => self.stack.push(DCValue::Num(BigReal::from(self.oradix))),
+            Action::LoadPrecision => self.stack.push(DCValue::Num(BigReal::from(self.scale))),
+            //Action::Asciify
+            Action::ExecuteMacro => if let DCValue::Str(string) = self.pop_top()? {
+                return Ok(DCResult::Recursion(string));
+            }
+
+            //Action::Input
+            Action::Quit => return Ok(DCResult::Terminate(2)),
+            Action::QuitLevels => match self.pop_top()? {
+                DCValue::Num(ref n) if n.is_positive() => {
+                    return n.to_u32()
+                        .map(DCResult::QuitLevels)
+                        .ok_or_else(|| "quit levels out of range (must fit into 32 bits)".into());
+                }
+                _ => {
+                    return Err("Q command requires a number >= 1".into());
+                }
+            }
+
+            Action::Unimplemented(c) => {
+                return Err(format!("{:?} (0{:o}) unimplemented", c, c as u32).into());
             }
 
             _ => unimplemented!("{:?}", action)
@@ -130,6 +324,48 @@ impl DC4 {
             DCValue::Num(ref n) => write!(w, "{}", n.to_str_radix(self.oradix).to_uppercase()),
             DCValue::Str(ref s) => write!(w, "{}", s),
         }.unwrap();
+    }
+
+    fn get_two_ints(&self) -> Result<(&BigReal, &BigReal), DCError> {
+        let a: &BigReal;
+        let b: &BigReal;
+
+        let len = self.stack.len();
+        if len < 2 {
+            return Err("stack empty".into());
+        }
+
+        if let DCValue::Num(ref n) = self.stack[len - 2] {
+            a = n;
+        } else {
+            return Err("non-numeric value".into());
+        }
+
+        if let DCValue::Num(ref n) = self.stack[len - 1] {
+            b = n;
+        } else {
+            return Err("non-numeric value".into());
+        }
+
+        Ok((a, b))
+    }
+
+    fn pop_top(&mut self) -> Result<DCValue, DCError> {
+        self.stack.pop()
+            .ok_or_else(|| "stack empty".into())
+    }
+
+    fn binary_operator<F>(&mut self, mut f: F) -> Result<(), DCError>
+        where F: FnMut(&BigReal, &BigReal) -> Result<BigReal, DCError>
+    {
+        let n: BigReal = {
+            let (a, b) = self.get_two_ints()?;
+            f(a, b)?
+        };
+        self.stack.pop();
+        self.stack.pop();
+        self.stack.push(DCValue::Num(n));
+        Ok(())
     }
 
     fn error(&self, w: &mut impl Write, args: std::fmt::Arguments) {
