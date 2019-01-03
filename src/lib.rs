@@ -6,12 +6,13 @@
 
 #[macro_use] extern crate log;
 extern crate num;
-extern crate utf8;
 
 mod big_real;
+mod byte_parser;
 mod dcregisters;
 pub mod parser;
 mod state;
+mod utf8_read_iterator;
 
 pub use state::DC4;
 

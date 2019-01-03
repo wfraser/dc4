@@ -53,15 +53,24 @@ pub enum Action {
     NumFrxDigits,       // 'X'
     StackDepth,         // 'z'
 
+    /// NOTE: DC4 purposely does not implement this.
     ShellExec(String),  // '!'
 
+    /// DC4 extension.
     Version,            // '@'
 
+    /// End of input was reached.
     Eof,
 
     // Errors:
+
+    /// Unimplemented (or unrecognized) command.
     Unimplemented(char),
+
+    /// Register characters must be in the range of 0 ~ 255.
     RegisterOutOfRange(char),
+
+    InputError(String),
 }
 
 #[derive(Debug)]
@@ -82,7 +91,7 @@ pub enum RegisterAction {
 
 #[derive(Debug)]
 enum ParseState {
-    Any,
+    Start,
     Comment,
     Number { buf: String, decimal: bool },
     String { buf: String, level: usize },
@@ -97,7 +106,7 @@ enum ParseState {
 impl Parser {
     pub fn new() -> Self {
         Parser {
-            state: Some(ParseState::Any),
+            state: Some(ParseState::Start),
         }
     }
 
@@ -118,7 +127,7 @@ impl Parser {
         let c = match self.state {
             Some(ParseState::Unused(c)) => {
                 debug!("reusing unused input: {:?}", c);
-                self.state = Some(ParseState::Any);
+                self.state = Some(ParseState::Start);
                 c
             }
             _ => match c.take() {
@@ -143,9 +152,9 @@ impl Parser {
 impl ParseState {
     pub fn next(self, c: char) -> (Self, Option<Action>) {
         match self {
-            ParseState::Any => match c {
+            ParseState::Start => match c {
                 ' ' | '\t' | '\r' | '\n' =>
-                    (ParseState::Any, None),
+                    (self, None),
                 '_' | '0' ... '9' | 'A' ... 'F' | '.' =>
                     (ParseState::Number { buf: c.to_string(), decimal: c == '.' }, None),
 
@@ -200,7 +209,7 @@ impl ParseState {
                 _ => (self, Some(Action::Unimplemented(c))),
             },
             ParseState::Comment => match c {
-                '\n' => (ParseState::Any, None),
+                '\n' => (ParseState::Start, None),
                 _ => (self, None),
             }
             ParseState::Number { mut buf, decimal } => match c {
@@ -229,14 +238,14 @@ impl ParseState {
                     buf.push(c);
                     (ParseState::String { buf, level: level - 1 }, None)
                 }
-                ']' if level == 0 => (ParseState::Any, Some(Action::PushString(buf))),
+                ']' if level == 0 => (ParseState::Start, Some(Action::PushString(buf))),
                 _ => {
                     buf.push(c);
                     (ParseState::String { buf, level }, None)
                 }
             }
             ParseState::ShellExec(mut buf) => match c {
-                '\n' => (ParseState::Any, Some(Action::ShellExec(buf))),
+                '\n' => (ParseState::Start, Some(Action::ShellExec(buf))),
                 _ => {
                     buf.push(c);
                     (ParseState::ShellExec(buf), None)
@@ -250,8 +259,8 @@ impl ParseState {
                 _ => (ParseState::ShellExec(String::new()), None),
             }
             ParseState::TwoChar(action) => match c as u32 {
-                0 ... 255 => (ParseState::Any, Some(Action::Register(action, c as u8))),
-                _ => (ParseState::Any, Some(Action::RegisterOutOfRange(c)))
+                0 ... 255 => (ParseState::Start, Some(Action::Register(action, c as u8))),
+                _ => (ParseState::Start, Some(Action::RegisterOutOfRange(c)))
             }
             ParseState::Unused(_) => panic!("cannot next() on ParseState::Unused"),
         }

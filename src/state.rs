@@ -4,12 +4,13 @@
 // Copyright (c) 2015-2019 by William R. Fraser
 //
 
-use std::io::{Read, Write};
+use std::io::{BufRead, Write};
 use num::BigInt;
 use num::traits::{ToPrimitive, Zero};
-use big_real::BigReal;
-use dcregisters::DCRegisters;
-use parser::{Action, RegisterAction};
+use crate::big_real::BigReal;
+use crate::byte_parser::ByteActionParser;
+use crate::dcregisters::DCRegisters;
+use crate::parser::{Action, RegisterAction};
 use crate::{DCValue, DCResult, DCError};
 
 pub struct DC4 {
@@ -33,47 +34,20 @@ impl DC4 {
         }
     }
 
-    pub fn program(&mut self, input: &mut impl Read, w: &mut impl Write) -> DCResult {
-        use parser::Parser;
-        let mut input_decoder = utf8::BufReadDecoder::new(std::io::BufReader::new(input));
-        let mut parser = Parser::new();
-        loop {
-            let buf: &str = match input_decoder.next_strict() {
-                Some(Ok(s)) => s,
-                None => return DCResult::Continue,
-                Some(Err(utf8::BufReadDecoderError::Io(err))) => {
-                    self.error(w, format_args!("error reading from input: {}", err));
-                    return DCResult::Terminate(0);
+    pub fn program(&mut self, r: &mut impl BufRead, w: &mut impl Write) -> DCResult {
+        for action in ByteActionParser::new(r) {
+            match self.action(action, w) {
+                Ok(DCResult::Continue) => (), // next loop iteration
+                Ok(DCResult::Recursion(_text)) => unimplemented!("recursion"),
+                Err(msg) => {
+                    self.error(w, format_args!("{}", msg));
                 }
-                Some(Err(utf8::BufReadDecoderError::InvalidByteSequence(bytes))) => {
-                    self.error(w, format_args!("invalid UTF-8 in input: {:x?}", bytes));
-                    "\u{FFFD}"
-                }
-            };
-
-            let mut chars = buf.chars();
-            let mut c = chars.next();
-            loop {
-                if let Some(action) = parser.step(&mut c) {
-                    match self.action(action, w) {
-                        Ok(DCResult::Continue) => (), // next loop iteration
-                        Ok(DCResult::Recursion(_text)) => unimplemented!("recursion"),
-                        Err(msg) => {
-                            self.error(w, format_args!("{}", msg));
-                        }
-                        Ok(other) => {
-                            return other;
-                        }
-                    }
-                }
-                if c.is_none() {
-                    c = chars.next();
-                    if c.is_none() {
-                        break;
-                    }
+                Ok(other) => {
+                    return other;
                 }
             }
         }
+        DCResult::Continue
     }
 
     pub fn action(&mut self, action: Action, w: &mut impl Write) -> Result<DCResult, DCError> {
@@ -139,8 +113,14 @@ impl DC4 {
                     None => return Err("stack empty".into())
                 }
             }
+            Action::PrintStack => {
+                for value in self.stack.iter().rev() {
+                    self.print_elem(value, w);
+                    writeln!(w).unwrap();
+                }
+            }
 
-            _ => unimplemented!()
+            _ => unimplemented!("{:?}", action)
         }
         Ok(DCResult::Continue)
     }
