@@ -9,6 +9,8 @@ build = "build.rs"
 [dependencies]
 num = "0.2"
 utf-8 = "0.7"
+log = "0.4"
+env_logger = "0.6"
 
 [target.'cfg(target_env = "msvc")'.build-dependencies]
 winres = "0.1"
