@@ -4,6 +4,8 @@
 // Copyright (c) 2019 by William R. Fraser
 //
 
+use std::error::Error;
+use std::fmt;
 use std::io::{self, BufRead};
 use std::str;
 
@@ -29,14 +31,14 @@ pub enum Utf8ReadError {
     Invalid(Vec<u8>),
 }
 
-impl std::error::Error for Utf8ReadError {
+impl Error for Utf8ReadError {
     fn description(&self) -> &str {
         "UTF-8 Read Error"
     }
 }
 
-impl std::fmt::Display for Utf8ReadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl fmt::Display for Utf8ReadError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Utf8ReadError::Io(e) => write!(f, "I/O Error: {}", e),
             Utf8ReadError::Invalid(bytes) => write!(f, "Invalid UTF-8 bytes: {:x?}", bytes),

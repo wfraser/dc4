@@ -4,14 +4,16 @@
 // Copyright (c) 2015-2019 by William R. Fraser
 //
 
+use std::fmt;
 use std::io::{BufRead, Write};
 use num::BigInt;
 use num::traits::{ToPrimitive, Zero};
-use crate::big_real::BigReal;
-use crate::byte_parser::ByteActionParser;
-use crate::dcregisters::DCRegisters;
-use crate::parser::{Action, RegisterAction};
-use crate::{DCValue, DCResult, DCError};
+
+use big_real::BigReal;
+use byte_parser::ByteActionParser;
+use dcregisters::DCRegisters;
+use parser::{Action, RegisterAction};
+use ::{DCValue, DCResult, DCError};
 
 pub struct DC4 {
     program_name: String,
@@ -368,7 +370,7 @@ impl DC4 {
         Ok(())
     }
 
-    fn error(&self, w: &mut impl Write, args: std::fmt::Arguments) {
-        writeln!(w, "{}: {}", self.program_name, std::fmt::format(args)).unwrap();
+    fn error(&self, w: &mut impl Write, args: fmt::Arguments) {
+        writeln!(w, "{}: {}", self.program_name, fmt::format(args)).unwrap();
     }
 }
