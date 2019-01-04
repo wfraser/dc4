@@ -382,11 +382,9 @@ impl DC4 {
             Action::Unimplemented(c) => {
                 return Err(format!("{:?} (0{:o}) unimplemented", c, c as u32).into());
             }
-            //Action::RegisterOutOfRange(c)
             Action::InputError(msg) => {
                 return Err(format!("error reading input: {}", msg).into());
             }
-            _ => unimplemented!("{:?}", action) // FIXME: remove when done
         }
         Ok(DCResult::Continue)
     }

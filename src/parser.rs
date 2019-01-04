@@ -15,7 +15,7 @@ pub enum Action {
     PushNumber(String),
     PushString(String),
 
-    Register(RegisterAction, u8),
+    Register(RegisterAction, char),
 
     Print,              // 'p'
     PrintNoNewlinePop,  // 'n'
@@ -69,9 +69,7 @@ pub enum Action {
     /// Unimplemented (or unrecognized) command.
     Unimplemented(char),
 
-    /// Register characters must be in the range of 0 ~ 255.
-    RegisterOutOfRange(char),
-
+    /// Something went wrong reading or parsing input.
     InputError(String),
 }
 
@@ -268,10 +266,7 @@ impl ParseState {
                 '=' => (ParseState::TwoChar(RegisterAction::Ne), None),
                 _ => (ParseState::ShellExec(String::new()), None),
             }
-            ParseState::TwoChar(action) => match c as u32 {
-                0 ... 255 => (ParseState::Start, Some(Action::Register(action, c as u8))),
-                _ => (ParseState::Start, Some(Action::RegisterOutOfRange(c)))
-            }
+            ParseState::TwoChar(action) => (ParseState::Start, Some(Action::Register(action, c))),
             ParseState::Unused(_) => panic!("cannot next() on ParseState::Unused"),
         }
     }
