@@ -450,3 +450,11 @@ fn test_rotate() {
     assert_eq!(dc4_run(b"1 2 2 33^ R f"), "dc4 cargo test: rotation value must fit in 32 bits\n2\n1\n");
     assert_eq!(dc4_run(b"1 2 _2 33^ R f"), "dc4 cargo test: rotation value must fit in 32 bits\n2\n1\n");
 }
+
+#[test]
+fn test_parser_tricky() {
+    // This checks for an edge case in the parser where it can lose the last character in input
+    // because it is both EOF and also has a left-over character from the 'f' in "16f" resulting in
+    // an action and also a stashed character.
+    assert_eq!(dc4_run(b"16ff"), "16\n16\n");
+}

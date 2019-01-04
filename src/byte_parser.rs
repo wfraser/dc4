@@ -39,6 +39,10 @@ impl<R: BufRead> Iterator for ByteActionParser<R> {
             }
 
             if let Some(action) = self.parser.step(&mut c) {
+                if let Some(unused_char) = c {
+                    // if the parser didn't use the character, stash it for next time around.
+                    self.stashed = Some(unused_char);
+                }
                 if let Action::Eof = action {
                     self.inner = None;
                     return None;
