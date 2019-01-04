@@ -25,7 +25,7 @@ impl<R: BufRead> Iterator for ByteActionParser<R> {
                         Some(Err(Utf8ReadError::Invalid(bytes))) => {
                             self.stashed = Some('\u{FFFD}');
                             self.inner = Some(inner);
-                            return Some(Action::InputError(format!("Invalid UTF-8 in input: {:x?}", bytes)));
+                            return Some(Action::InputError(format!("invalid UTF-8 in input: {:x?}", bytes)));
                         }
                         Some(Ok(c)) => {
                             self.inner = Some(inner); // restore inner iterator

@@ -107,7 +107,11 @@ enum ParseState {
     Bang,
     TwoChar(RegisterAction),
 
-    /// 
+    /// In some cases, a single character input can result in two actions being produced. (Any time
+    /// a number is completed with a single-character action, it results in a PushNumber and also
+    /// whatever that next action was.) Because the signature of `next` and `step` only yield one
+    /// action at a time, we need a way to hold on to the single-character for use next time
+    /// around.
     Unused(char),
 }
 
@@ -182,7 +186,7 @@ impl ParseState {
                 'd' => (self, Some(Action::Dup)),
                 'r' => (self, Some(Action::Swap)),
                 'R' => (self, Some(Action::Rotate)),
-                
+
                 's' => (ParseState::TwoChar(RegisterAction::Store), None),
                 'l' => (ParseState::TwoChar(RegisterAction::Load), None),
                 'S' => (ParseState::TwoChar(RegisterAction::PushRegStack), None),
@@ -206,7 +210,7 @@ impl ParseState {
                 '?' => (self, Some(Action::Input)),
                 'q' => (self, Some(Action::Quit)),
                 'Q' => (self, Some(Action::QuitLevels)),
-                
+
                 'Z' => (self, Some(Action::NumDigits)),
                 'X' => (self, Some(Action::NumFrxDigits)),
                 'z' => (self, Some(Action::StackDepth)),

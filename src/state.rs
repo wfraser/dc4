@@ -12,7 +12,7 @@ use num::traits::{ToPrimitive, Zero};
 use big_real::BigReal;
 use byte_parser::ByteActionParser;
 use dcregisters::DCRegisters;
-use parser::{Action, RegisterAction};
+use parser::{Action, RegisterAction, Parser};
 use ::{DCValue, DCResult, DCError};
 
 pub struct DC4 {
@@ -38,9 +38,13 @@ impl DC4 {
 
     pub fn program(&mut self, r: &mut impl BufRead, w: &mut impl Write) -> DCResult {
         for action in ByteActionParser::new(r) {
-            match self.action(action, w) {
+            let mut result = self.action(action, w);
+            if let Ok(DCResult::Macro(text)) = result {
+                result = self.run_macro(text, w);
+            }
+            match result {
                 Ok(DCResult::Continue) => (), // next loop iteration
-                Ok(DCResult::Macro(text)) => unimplemented!("macro {:?}", text),
+                Ok(DCResult::QuitLevels(_)) => (), // 'Q' mustn't exit the top level
                 Err(msg) => {
                     self.error(w, format_args!("{}", msg));
                 }
@@ -50,6 +54,64 @@ impl DC4 {
             }
         }
         DCResult::Continue
+    }
+
+    pub fn run_macro(&mut self, mut text: String, w: &mut impl Write) -> Result<DCResult, DCError> {
+        let mut parser = Parser::default();
+        let mut tail_recursion_depth = 0;
+        let mut pos = 0;
+        let mut cur = None;
+        let mut advance = 0;
+        loop {
+            if cur.is_none() {
+                cur = (&text[pos..]).chars().next();
+                advance = cur.map(|c| c.len_utf8()).unwrap_or(0);
+            }
+
+            let action = parser.step(&mut cur);
+            if cur.is_none() {
+                pos += advance;
+            }
+            
+            match action {
+                None => (),
+                Some(Action::Eof) => return Ok(DCResult::Continue),
+                Some(action) => {
+                    let mut result = self.action(action, w);
+
+                    while let Ok(DCResult::Macro(new_text)) = result {
+                        if pos == text.len() {
+                            // tail recursion! :D
+                            // replace the current text with the new text and start over
+                            text = new_text;
+                            pos = 0;
+                            cur = None;
+                            advance = 0;
+                            tail_recursion_depth += 1;
+                            result = Ok(DCResult::Continue);
+                        } else {
+                            result = self.run_macro(new_text, w);
+                        }
+                    }
+
+                    match result {
+                        Ok(DCResult::Continue) => (),
+                        Ok(DCResult::QuitLevels(n)) => {
+                            if n > tail_recursion_depth {
+                                return Ok(DCResult::QuitLevels(n - tail_recursion_depth));
+                            } else {
+                                return Ok(DCResult::Continue);
+                            }
+                        }
+                        Ok(DCResult::Terminate(n)) => return Ok(DCResult::Terminate(n)),
+                        Ok(DCResult::Macro(_)) => unreachable!(),
+                        Err(msg) => {
+                            self.error(w, format_args!("{}", msg));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     pub fn action(&mut self, action: Action, w: &mut impl Write) -> Result<DCResult, DCError> {
@@ -394,8 +456,9 @@ impl DC4 {
                     self.stack.push(DCValue::Str(format!("{}", bytes[0] as char)));
                 }
             }
-            Action::ExecuteMacro => if let DCValue::Str(string) = self.pop_top()? {
-                return Ok(DCResult::Macro(string));
+            Action::ExecuteMacro => match self.pop_top()? {
+                DCValue::Str(text) => return Ok(DCResult::Macro(text)),
+                other => self.stack.push(other),
             }
             Action::Input => {
                 let mut line = String::new();
@@ -411,9 +474,8 @@ impl DC4 {
                         .map(DCResult::QuitLevels)
                         .ok_or_else(|| "quit levels out of range (must fit into 32 bits)".into());
                 }
-                _ => {
-                    return Err("Q command requires a number >= 1".into());
-                }
+                DCValue::Num(_) => return Err("Q command requires a number >= 1".into()),
+                _ => return Err("Q command requires a number >= 1".into()),
             }
             Action::NumDigits => match self.pop_top()? {
                 DCValue::Num(n) => self.stack.push(DCValue::Num(BigReal::from(n.num_digits()))),
@@ -442,7 +504,7 @@ impl DC4 {
                 return Err(format!("{:?} (0{:o}) unimplemented", c, c as u32).into());
             }
             Action::InputError(msg) => {
-                return Err(format!("error reading input: {}", msg).into());
+                return Err(format!("{}", msg).into());
             }
         }
         Ok(DCResult::Continue)
