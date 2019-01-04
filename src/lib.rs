@@ -27,7 +27,7 @@ pub enum DCResult {
     Terminate(u32),
     QuitLevels(u32),
     Continue,
-    Recursion(String),
+    Macro(String),
 }
 
 pub enum DCError {

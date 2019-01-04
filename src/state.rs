@@ -5,7 +5,7 @@
 //
 
 use std::fmt;
-use std::io::{BufRead, Write};
+use std::io::{self, BufRead, Write};
 use num::BigInt;
 use num::traits::{ToPrimitive, Zero};
 
@@ -40,7 +40,7 @@ impl DC4 {
         for action in ByteActionParser::new(r) {
             match self.action(action, w) {
                 Ok(DCResult::Continue) => (), // next loop iteration
-                Ok(DCResult::Recursion(_text)) => unimplemented!("recursion"),
+                Ok(DCResult::Macro(text)) => unimplemented!("macro {:?}", text),
                 Err(msg) => {
                     self.error(w, format_args!("{}", msg));
                 }
@@ -112,6 +112,13 @@ impl DC4 {
             Action::PrintNoNewlinePop => {
                 let v = self.pop_top()?;
                 self.print_elem(&v, w);
+            }
+            Action::PrintBytesPop => match self.pop_top()? {
+                DCValue::Str(s) => { write!(w, "{}", s).unwrap(); },
+                DCValue::Num(n) => {
+                    let (_sign, bytes) = n.to_int().to_bytes_be();
+                    w.write_all(&bytes).unwrap();
+                }
             }
             Action::PrintStack => {
                 for value in self.stack.iter().rev() {
@@ -237,7 +244,29 @@ impl DC4 {
                     return Err("stack empty".into());
                 }
             }
-            //Action::Rotate
+            Action::Rotate => match self.pop_top()? {
+                DCValue::Num(ref n) if self.stack.len() >= 2 => {
+                    let n = match n.to_i32() {
+                        Some(n) => n,
+                        None => {
+                            return Err("rotation value must fit in 32 bits".into());
+                        }
+                    };
+
+                    let start = match n.abs() as usize {
+                        0 | 1                       => self.stack.len() - 1,
+                        n if n >= self.stack.len()  => 0,
+                        other                       => self.stack.len() - other,
+                    };
+
+                    if n > 0 {
+                        self.stack[start..].rotate_left(1);
+                    } else {
+                        self.stack[start..].rotate_right(1);
+                    }
+                }
+                _ => (), // do nothing, even if it's the wrong type!
+            }
             Action::SetInputRadix => match self.pop_top()? {
                 DCValue::Num(n) => {
                     match n.to_u32() {
@@ -294,12 +323,28 @@ impl DC4 {
             Action::LoadInputRadix => self.stack.push(DCValue::Num(BigReal::from(self.iradix))),
             Action::LoadOutputRadix => self.stack.push(DCValue::Num(BigReal::from(self.oradix))),
             Action::LoadPrecision => self.stack.push(DCValue::Num(BigReal::from(self.scale))),
-            //Action::Asciify
-            Action::ExecuteMacro => if let DCValue::Str(string) = self.pop_top()? {
-                return Ok(DCResult::Recursion(string));
+            Action::Asciify => match self.pop_top()? {
+                DCValue::Str(mut s) => {
+                    if let Some((len, _char)) = s.char_indices().nth(1) {
+                        s.truncate(len);
+                    }
+                    self.stack.push(DCValue::Str(s));
+                }
+                DCValue::Num(n) => {
+                    let (_sign, bytes) = n.to_int().to_bytes_le();
+                    self.stack.push(DCValue::Str(format!("{}", bytes[0] as char)));
+                }
             }
-
-            //Action::Input
+            Action::ExecuteMacro => if let DCValue::Str(string) = self.pop_top()? {
+                return Ok(DCResult::Macro(string));
+            }
+            Action::Input => {
+                let mut line = String::new();
+                if let Err(e) = io::stdin().read_line(&mut line) {
+                    writeln!(w, "warning: error reading input: {}", e).unwrap();
+                }
+                return Ok(DCResult::Macro(line));
+            }
             Action::Quit => return Ok(DCResult::Terminate(2)),
             Action::QuitLevels => match self.pop_top()? {
                 DCValue::Num(ref n) if n.is_positive() => {
@@ -311,11 +356,36 @@ impl DC4 {
                     return Err("Q command requires a number >= 1".into());
                 }
             }
-
+            Action::NumDigits => match self.pop_top()? {
+                DCValue::Num(n) => self.stack.push(DCValue::Num(BigReal::from(n.num_digits()))),
+                DCValue::Str(s) => self.stack.push(DCValue::Num(BigReal::from(s.len()))),
+            }
+            Action::NumFrxDigits => match self.pop_top()? {
+                DCValue::Num(n) => self.stack.push(DCValue::Num(BigReal::from(n.num_frx_digits()))),
+                DCValue::Str(_) => self.stack.push(DCValue::Num(BigReal::zero())),
+            }
+            Action::StackDepth => {
+                let depth = self.stack.len();
+                self.stack.push(DCValue::Num(BigReal::from(depth)));
+            }
+            Action::ShellExec(_) => {
+                return Err("running shell commands is not supported".into());
+            }
+            Action::Version => {
+                let ver = env!("CARGO_PKG_VERSION_MAJOR").parse::<u64>().unwrap() << 24
+                        | env!("CARGO_PKG_VERSION_MINOR").parse::<u64>().unwrap() << 16
+                        | env!("CARGO_PKG_VERSION_PATCH").parse::<u64>().unwrap();
+                self.stack.push(DCValue::Num(BigReal::from(ver)));
+                self.stack.push(DCValue::Str("dc4".to_owned()));
+            }
+            Action::Eof => (), // nothing to do
             Action::Unimplemented(c) => {
                 return Err(format!("{:?} (0{:o}) unimplemented", c, c as u32).into());
             }
-
+            //Action::RegisterOutOfRange(c)
+            Action::InputError(msg) => {
+                return Err(format!("error reading input: {}", msg).into());
+            }
             _ => unimplemented!("{:?}", action) // FIXME: remove when done
         }
         Ok(DCResult::Continue)

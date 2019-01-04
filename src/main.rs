@@ -182,7 +182,7 @@ fn main() {
         };
 
         match result {
-            DCResult::Recursion(_) => unreachable!(),
+            DCResult::Macro(_) => panic!("unhandled macro"),
             DCResult::Terminate(_) => return,
             DCResult::QuitLevels(_) => (),  // nothing: if there are quit levels left at the end of
                                             // an input, they are ignored.
