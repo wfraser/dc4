@@ -99,8 +99,67 @@ impl DC4 {
             Action::PushString(s) => {
                 self.stack.push(DCValue::Str(s));
             }
-            Action::Register(action, register) => {
-                unimplemented!("action {:?} on register {:?}", action, register as char);
+            Action::Register(action, register) => match action {
+                RegisterAction::Store => {
+                    let value = self.pop_top()?;
+                    self.registers.get_mut(register)?.set(value);
+                }
+                RegisterAction::Load => {
+                    match self.registers.get(register)?.value() {
+                        Some(value) => self.stack.push(value.clone()),
+                        None => return Err(
+                            format!("register '{}' (0{:o}) is empty",
+                                register, register as u32).into()),
+                    }
+                }
+                RegisterAction::PushRegStack => {
+                    let value = self.pop_top()?;
+                    self.registers.get_mut(register)?.push(value);
+                }
+                RegisterAction::PopRegStack => {
+                    match self.registers.get_mut(register)?.pop() {
+                        Some(value) => self.stack.push(value),
+                        None => return Err(
+                            format!("stack register '{}' (0{:o}) is empty",
+                                register, register as u32).into()),
+                    }
+                }
+                RegisterAction::Gt => return Ok(self.cond_macro(register, |a,b| b>a)?),
+                RegisterAction::Le => return Ok(self.cond_macro(register, |a,b| b<=a)?),
+                RegisterAction::Lt => return Ok(self.cond_macro(register, |a,b| b<a)?),
+                RegisterAction::Ge => return Ok(self.cond_macro(register, |a,b| b>=a)?),
+                RegisterAction::Eq => return Ok(self.cond_macro(register, |a,b| b==a)?),
+                RegisterAction::Ne => return Ok(self.cond_macro(register, |a,b| b!=a)?),
+                RegisterAction::StoreRegArray => {
+                    let maybe_key = match self.pop_top()? {
+                        DCValue::Num(n) => {
+                            if n.is_negative() {
+                                None
+                            } else {
+                                Some(n)
+                            }
+                        }
+                        _ => None,
+                    };
+                    let value = self.pop_top()?;
+                    match maybe_key {
+                        None => return Err("array index must be a nonnegative integer".into()),
+                        Some(key) => {
+                            self.registers.get_mut(register)?
+                                .array_store(key, value);
+                        }
+                    }
+                }
+                RegisterAction::LoadRegArray => match self.pop_top()? {
+                    DCValue::Num(ref n) if !n.is_negative() => {
+                        let value = self.registers.get(register)?
+                            .array_load(n)
+                            .as_ref()
+                            .clone();
+                        self.stack.push(value);
+                    }
+                    _ => return Err("array index must be a nonnegative integer".into()),
+                }
             }
             Action::Print => {
                 match self.stack.last() {
@@ -425,17 +484,41 @@ impl DC4 {
             .ok_or_else(|| "stack empty".into())
     }
 
-    fn binary_operator<F>(&mut self, mut f: F) -> Result<(), DCError>
-        where F: FnMut(&BigReal, &BigReal) -> Result<BigReal, DCError>
+    fn binary_lambda<T, F>(&mut self, mut f: F) -> Result<T, DCError>
+        where F: FnMut(&BigReal, &BigReal) -> Result<T, DCError>
     {
-        let n: BigReal = {
+        let value: T = {
             let (a, b) = self.get_two_ints()?;
             f(a, b)?
         };
+
         self.stack.pop();
         self.stack.pop();
+        Ok(value)
+    }
+
+    fn binary_operator<F>(&mut self, mut f: F) -> Result<(), DCError>
+        where F: FnMut(&BigReal, &BigReal) -> Result<BigReal, DCError>
+    {
+        let n = self.binary_lambda(|a, b| f(a, b))?;
         self.stack.push(DCValue::Num(n));
         Ok(())
+    }
+
+    fn cond_macro<F>(&mut self, register: char, f: F) -> Result<DCResult, DCError>
+        where F: Fn(&BigReal, &BigReal) -> bool
+    {
+        if self.binary_lambda(|a, b| Ok(f(a, b)))? {
+            let text = match self.registers.get(register)?.value() {
+                Some(DCValue::Str(s)) => s.to_owned(),
+                Some(DCValue::Num(_)) => return Ok(DCResult::Continue),
+                None => return Err(
+                    format!("register '{}' (0{:o}) is empty", register, register as u32).into()),
+            };
+            Ok(DCResult::Macro(text))
+        } else {
+            Ok(DCResult::Continue)
+        }
     }
 
     fn error(&self, w: &mut impl Write, args: fmt::Arguments) {
