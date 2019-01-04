@@ -58,7 +58,7 @@ impl<R: BufRead> ByteActionParser<R> {
     pub fn new(input: R) -> Self {
         Self {
             inner: Some(Utf8ReadIterator::new(input)),
-            parser: Parser::new(),
+            parser: Parser::default(),
             stashed: None,
         }
     }

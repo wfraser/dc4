@@ -8,6 +8,14 @@ pub struct Parser {
     state: Option<ParseState>,
 }
 
+impl Default for Parser {
+    fn default() -> Self {
+        Self {
+            state: Some(ParseState::Start),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Action {
     // Where possible, keep things ordered like in the GNU dc man page.
@@ -104,12 +112,6 @@ enum ParseState {
 }
 
 impl Parser {
-    pub fn new() -> Self {
-        Parser {
-            state: Some(ParseState::Start),
-        }
-    }
-
     pub fn next(&mut self, mut input: impl Iterator<Item=char>) -> Action {
         let mut c = input.next();
         loop {
