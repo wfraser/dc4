@@ -8,7 +8,6 @@
 //
 
 extern crate dc4;
-extern crate env_logger;
 
 use std::env;
 use std::fs::File;
@@ -148,8 +147,6 @@ fn parse_arguments<'a>(args: &'a [&'a str])
 }
 
 fn main() {
-    env_logger::init();
-
     let args: Vec<String> = env::args().collect();
     let args_references: Vec<&str> = args.iter().map(|owned| &owned[..]).collect();
 

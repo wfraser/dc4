@@ -131,7 +131,7 @@ impl DC4 {
                             }
                         }
                         '.' => { shift = Some(0); }
-                        _ => unreachable!()
+                        _ => panic!("unexpected character in PushNumber action: {:?}", c)
                     }
                 }
                 if neg {
@@ -504,7 +504,7 @@ impl DC4 {
                 return Err(format!("{:?} (0{:o}) unimplemented", c, c as u32).into());
             }
             Action::InputError(msg) => {
-                return Err(format!("{}", msg).into());
+                return Err(msg.into());
             }
         }
         Ok(DCResult::Continue)

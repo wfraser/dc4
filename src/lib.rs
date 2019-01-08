@@ -4,7 +4,6 @@
 // Copyright (c) 2015-2019 by William R. Fraser
 //
 
-#[macro_use] extern crate log;
 extern crate num;
 
 mod big_real;
@@ -30,6 +29,7 @@ pub enum DCResult {
     Macro(String),
 }
 
+#[derive(Debug)]
 pub enum DCError {
     Message(String),
     StaticMessage(&'static str),

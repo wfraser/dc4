@@ -129,27 +129,19 @@ impl Parser {
     }
 
     pub fn step(&mut self, c: &mut Option<char>) -> Option<Action> {
-        debug!("--- current state: {:?}", self.state);
         let c = match self.state {
             Some(ParseState::Unused(c)) => {
-                debug!("reusing unused input: {:?}", c);
                 self.state = Some(ParseState::Start);
                 c
             }
             _ => match c.take() {
-                Some(c) => {
-                    debug!("input: {:?}", c);
-                    c
-                }
+                Some(c) => c,
                 None => {
-                    debug!("EOF");
                     return Some(Action::Eof);
                 }
             }
         };
         let (new_state, result) = self.state.take().unwrap().next(c);
-        debug!("new state: {:?}", new_state);
-        debug!("result: {:?}", result);
         self.state = Some(new_state);
         result
     }
