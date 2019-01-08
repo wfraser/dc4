@@ -106,13 +106,6 @@ enum ParseState {
     ShellExec(String),
     Bang,
     TwoChar(RegisterAction),
-
-    /// In some cases, a single character input can result in two actions being produced. (Any time
-    /// a number is completed with a single-character action, it results in a PushNumber and also
-    /// whatever that next action was.) Because the signature of `next` and `step` only yield one
-    /// action at a time, we need a way to hold on to the single-character for use next time
-    /// around.
-    Unused(char),
 }
 
 impl Parser {
@@ -128,27 +121,42 @@ impl Parser {
         }
     }
 
-    pub fn step(&mut self, c: &mut Option<char>) -> Option<Action> {
-        let c = match self.state {
-            Some(ParseState::Unused(c)) => {
-                self.state = Some(ParseState::Start);
-                c
-            }
-            _ => match c.take() {
-                Some(c) => c,
-                None => {
-                    return Some(Action::Eof);
-                }
-            }
-        };
-        let (new_state, result) = self.state.take().unwrap().next(c);
+    pub fn step(&mut self, input: &mut Option<char>) -> Option<Action> {
+        let (new_state, result) = self.state.take().unwrap().next(input);
         self.state = Some(new_state);
         result
     }
 }
 
 impl ParseState {
-    pub fn next(self, c: char) -> (Self, Option<Action>) {
+    /// Given the current state and an input character, return the new state and maybe an Action.
+    /// If `input` is None after this call, it means the character was consumed. If not, it should
+    /// be re-issued again.
+    pub fn next(self, input: &mut Option<char>) -> (Self, Option<Action>) {
+        let c = match input.take() {
+            Some(c) => c,
+            None => {
+                // We are at EOF. We need to complete whatever we're in the middle of, or return
+                // Action::Eof to positively indicate that we're done.
+                let action: Action = match self {
+                    ParseState::Start => Action::Eof,
+                    ParseState::Comment => Action::Eof,
+                    ParseState::Number { buf, decimal: _ } => Action::PushNumber(buf),
+                    ParseState::String { buf, level: _ } =>
+                        // Note: we push the string even if it is incomplete (unbalanced brackets).
+                        Action::PushString(buf),
+                    ParseState::ShellExec(buf) => Action::ShellExec(buf),
+                    ParseState::Bang =>
+                        // GNU dc interprets this as an empty shell command and tries to run it
+                        // This is pointless, so let's just ignore it.
+                        Action::Eof,
+                    ParseState::TwoChar(_register_action) =>
+                        Action::InputError("unexpected end of input".into())
+                };
+                return (ParseState::Start, Some(action))
+            }
+        };
+
         match self {
             ParseState::Start => match c {
                 // Where possible, keep things ordered like in the GNU dc man page.
@@ -234,7 +242,13 @@ impl ParseState {
                     buf.push(c);
                     (ParseState::Number { buf, decimal: true }, None)
                 }
-                _ => (ParseState::Unused(c), Some(Action::PushNumber(buf)))
+                _ => {
+                    // Any other character means the number is complete, but it might also be an
+                    // action all by itself. We only return one action at a time, though, so put the
+                    // character back in the input Option to signal that we want it again next time.
+                    *input = Some(c);
+                    (ParseState::Start, Some(Action::PushNumber(buf)))
+                }
             }
             ParseState::String { mut buf, level } => match c {
                 '[' => {
@@ -265,7 +279,6 @@ impl ParseState {
                 _ => (ParseState::ShellExec(String::new()), None),
             }
             ParseState::TwoChar(action) => (ParseState::Start, Some(Action::Register(action, c))),
-            ParseState::Unused(_) => panic!("cannot next() on ParseState::Unused"),
         }
     }
 }

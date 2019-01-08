@@ -17,6 +17,16 @@ fn dc4_run(expr: &[u8]) -> String {
     String::from_utf8(out).unwrap()
 }
 
+fn dc4_run_two(expr1: &[u8], expr2: &[u8]) -> String {
+    let mut dc = dc4::DC4::new("dc4 cargo test".to_string());
+    let mut out = Vec::<u8>::new();
+
+    dc.program(&mut Cursor::new(expr1), &mut out);
+    dc.program(&mut Cursor::new(expr2), &mut out);
+
+    String::from_utf8(out).unwrap()
+}
+
 #[test]
 fn test_noop() {
     assert_eq!(dc4_run(b""), "");
@@ -457,4 +467,16 @@ fn test_parser_tricky() {
     // because it is both EOF and also has a left-over character from the 'f' in "16f" resulting in
     // an action and also a stashed character.
     assert_eq!(dc4_run(b"16ff"), "16\n16\n");
+
+    // This checks that partial strings at the end of input are pushed anyway.
+    assert_eq!(dc4_run_two(b"[partial", b"f"), "partial\n");
+
+    // This checks that in-progress numbers are pushed at the end of input.
+    assert_eq!(dc4_run_two(b"1234", b"f"), "1234\n");
+
+    // This checks that an incomplete two-character action at the end of input triggers an error.
+    assert_eq!(dc4_run_two(b"1234s", b"f"), "dc4 cargo test: unexpected end of input\n1234\n");
+
+    // This checks that comments don't somehow spill over into subsequent inputs.
+    assert_eq!(dc4_run_two(b"1234#", b"5678f"), "5678\n1234\n");
 }
