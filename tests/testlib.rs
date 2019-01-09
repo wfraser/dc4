@@ -263,6 +263,12 @@ fn test_quitlevels2() {
 }
 
 #[test]
+fn test_quitlevels3() {
+    assert_eq!(dc4_run(b"[[[[q]x1p]x2p]x3p]x4p"), "2\n3\n4\n");
+    assert_eq!(dc4_run(b"[q]s1 [l1x]s2 [l2x]s3 l3x [three]p l2x [two]p l1x [one]p"), "three\ntwo\n");
+}
+
+#[test]
 #[ignore] // because this test is so slow. be sure to run 'cargo test -- --ignored' occasionally.
 fn test_stackoverflow() {
     let iterations = "200000";

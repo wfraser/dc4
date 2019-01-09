@@ -72,7 +72,7 @@ impl DC4 {
             if cur.is_none() {
                 pos += advance;
             }
-            
+
             match action {
                 None => (),
                 Some(Action::Eof) => return Ok(DCResult::Continue),
@@ -94,16 +94,27 @@ impl DC4 {
                         }
                     }
 
-                    match result {
-                        Ok(DCResult::Continue) => (),
-                        Ok(DCResult::QuitLevels(n)) => {
-                            if n > tail_recursion_depth {
-                                return Ok(DCResult::QuitLevels(n - tail_recursion_depth));
-                            } else {
+                    // the quit logic is the same for both types except for which result they return
+                    macro_rules! quit_handler {
+                        ($n:expr, $result_ctor:path) => {
+                            if $n - 1 > tail_recursion_depth {
+                                return Ok($result_ctor($n - tail_recursion_depth - 1));
+                            } else if $n - 1 == tail_recursion_depth {
+                                // quitting stops here
+                                return Ok(DCResult::Continue);
+                            } else if $n > 0 && tail_recursion_depth > 0 {
+                                // if we're doing tail recursion at all, it means our parent virtual
+                                // stack frame is at the end of its text, so just unroll all the
+                                // virtual frames.
                                 return Ok(DCResult::Continue);
                             }
                         }
-                        Ok(DCResult::Terminate(n)) => return Ok(DCResult::Terminate(n)),
+                    }
+
+                    match result {
+                        Ok(DCResult::Continue) => (),
+                        Ok(DCResult::QuitLevels(n)) => quit_handler!(n, DCResult::QuitLevels),
+                        Ok(DCResult::Terminate(n)) => quit_handler!(n, DCResult::Terminate),
                         Ok(DCResult::Macro(_)) => unreachable!(),
                         Err(msg) => {
                             self.error(w, format_args!("{}", msg));
