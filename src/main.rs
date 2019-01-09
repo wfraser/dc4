@@ -164,7 +164,7 @@ fn main() {
             },
             DCInput::File(path) => {
                 match File::open(path) {
-                    Ok(mut file) => dc.program(&mut file, &mut io::stdout()),
+                    Ok(file) => dc.program(&mut std::io::BufReader::new(file), &mut io::stdout()),
                     Err(e)       => {
                         println!("{}: File open failed on {:?}: {}", progname(), path, e);
                         DCResult::Terminate(0)
@@ -172,12 +172,14 @@ fn main() {
                 }
             },
             DCInput::Stdin => {
-                dc.program(&mut io::stdin(), &mut io::stdout())
+                let stdin = io::stdin();
+                let mut lock = stdin.lock();
+                dc.program(&mut lock, &mut io::stdout())
             },
         };
 
         match result {
-            DCResult::Recursion(_) => unreachable!(),
+            DCResult::Macro(_) => panic!("unhandled macro"),
             DCResult::Terminate(_) => return,
             DCResult::QuitLevels(_) => (),  // nothing: if there are quit levels left at the end of
                                             // an input, they are ignored.
