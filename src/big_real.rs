@@ -1,7 +1,7 @@
 //
 // BigReal :: An arbitrary-precision real number class.
 //
-// Copyright (c) 2016-2018 by William R. Fraser
+// Copyright (c) 2016-2019 by William R. Fraser
 //
 
 use std::cmp::{max, Ordering};
@@ -242,14 +242,16 @@ impl BigReal {
     }
 
     pub fn rem(&self, rhs: &BigReal, scale: u32) -> BigReal {
-        let (self_adj, rhs_adj) = self.adjust_for_div(rhs, scale);
-        BigReal::new(self_adj % rhs_adj, scale)
+        let div = self.div(rhs, scale);
+        let mul = rhs * div;
+        self - mul
     }
 
     pub fn div_rem(&self, rhs: &BigReal, scale: u32) -> (BigReal, BigReal) {
-        let (self_adj, rhs_adj) = self.adjust_for_div(rhs, scale);
-        let div_rem = self_adj.div_rem(&rhs_adj);
-        (BigReal::new(div_rem.0, scale), BigReal::new(div_rem.1, scale))
+        let div = self.div(rhs, scale);
+        let mul = rhs * &div;
+        let rem = self - mul;
+        (div, rem)
     }
 
     // These are in num::traits::Signed, but that requires num::traits::Num, which we don't want to
@@ -554,18 +556,34 @@ fn test_mul2() {
 
 #[test]
 fn test_div1() {
-    let a = BigReal::new(50, 0);    // 50.
-    let b = BigReal::new(55, 3);    //  0.055
+    let a = BigReal::new(50, 0);            //  50.
+    let b = BigReal::new(55, 3);            //   0.055
     let c = a.div(&b, 0);
-    assert_eq!(c, BigReal::new(909, 0));
+    assert_eq!(c, BigReal::new(909, 0));    // 909.
 }
 
 #[test]
 fn test_div2() {
-    let a = BigReal::new(505, 1);   // 50.5
-    let b = BigReal::new(55, 3);    //  0.055
+    let a = BigReal::new(505, 1);           //  50.5
+    let b = BigReal::new(55, 3);            //   0.055
     let c = a.div(&b, 1);
-    assert_eq!(c, BigReal::new(9181, 1));
+    assert_eq!(c, BigReal::new(9181, 1));   // 918.1
+}
+
+#[test]
+fn test_rem1() {
+    let a = BigReal::new(505, 1);           // 50.5
+    let b = BigReal::new(55, 3);            //  0.055
+    let c = a.rem(&b, 1);
+    assert_eq!(c, BigReal::new(45, 4));     //   .0045
+}
+
+#[test]
+fn test_rem2() {
+    let a = BigReal::new(1654043318, 6);        // 1654.043318
+    let b = BigReal::new(12, 0);                //   12.
+    let c = a.rem(&b, 0);
+    assert_eq!(c, BigReal::new(10043318, 6));   //   10.043318
 }
 
 #[test]
