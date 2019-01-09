@@ -244,13 +244,17 @@ impl DC4 {
             Action::PrintNoNewlinePop => {
                 let v = self.pop_top()?;
                 self.print_elem(&v, w);
+                w.flush().unwrap();
             }
-            Action::PrintBytesPop => match self.pop_top()? {
-                DCValue::Str(s) => { write!(w, "{}", s).unwrap(); },
-                DCValue::Num(n) => {
-                    let (_sign, bytes) = n.to_int().to_bytes_be();
-                    w.write_all(&bytes).unwrap();
+            Action::PrintBytesPop => {
+                match self.pop_top()? {
+                    DCValue::Str(s) => { write!(w, "{}", s).unwrap(); },
+                    DCValue::Num(n) => {
+                        let (_sign, bytes) = n.to_int().to_bytes_be();
+                        w.write_all(&bytes).unwrap();
+                    }
                 }
+                w.flush().unwrap();
             }
             Action::PrintStack => {
                 for value in self.stack.iter().rev() {
