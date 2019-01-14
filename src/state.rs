@@ -527,7 +527,13 @@ impl DC4 {
 
     fn print_elem(&self, elem: &DCValue, w: &mut impl Write) {
         match *elem {
-            DCValue::Num(ref n) => write!(w, "{}", n.to_str_radix(self.oradix).to_uppercase()),
+            DCValue::Num(ref n) => if n.is_zero() {
+                // dc special-cases zero and ignores the scale, opting to not print the extra zero
+                // digits.
+                write!(w, "0")
+            } else {
+                write!(w, "{}", n.to_str_radix(self.oradix).to_uppercase())
+            }
             DCValue::Str(ref s) => write!(w, "{}", s),
         }.unwrap();
     }

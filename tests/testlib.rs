@@ -486,3 +486,12 @@ fn test_parser_tricky() {
     // This checks that comments don't somehow spill over into subsequent inputs.
     assert_eq!(dc4_run_two(b"1234#", b"5678f"), "5678\n1234\n");
 }
+
+#[test]
+fn test_zero_print() {
+    // prints "0", not ".000" like you'd think
+    assert_eq!(dc4_run(b"12.345 .345- 12- f"), "0\n");
+
+    // but the scale didn't actually change:
+    assert_eq!(dc4_run(b"12.345 .345- 12- .1+ f"), ".100\n");
+}
