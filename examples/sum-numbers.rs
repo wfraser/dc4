@@ -161,16 +161,16 @@ fn run(r: impl BufRead, mut w: impl Write) -> Result<(), Result<dc4::DCResult, d
         });
 
     if opts.oradix != 10 {
-        action(&mut dc, Action::PushNumber(opts.oradix.to_string()), &mut w)?;
+        dc.push_number(&opts.oradix.to_string());
         action(&mut dc, Action::SetOutputRadix, &mut w)?;
     }
     if opts.iradix != 10 {
-        action(&mut dc, Action::PushNumber(opts.iradix.to_string()), &mut w)?;
+        dc.push_number(&opts.iradix.to_string());
         action(&mut dc, Action::SetInputRadix, &mut w)?;
     }
 
     // initial value
-    action(&mut dc, Action::PushNumber("0".to_owned()), &mut w)?;
+    dc.push_number("0");
 
     for result in Input::new(r) {
         match result {
@@ -183,7 +183,7 @@ fn run(r: impl BufRead, mut w: impl Write) -> Result<(), Result<dc4::DCResult, d
                         s.as_bytes_mut()[0] = b'_';
                     }
                 }
-                action(&mut dc, Action::PushNumber(s), &mut w)?;
+                dc.push_number(&s);
                 action(&mut dc, Action::Add, &mut w)?;
             }
             Err(e) => {

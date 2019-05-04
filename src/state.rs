@@ -22,6 +22,8 @@ pub struct DC4 {
     scale: u32,
     iradix: u32,
     oradix: u32,
+    current_str: String,
+    current_num: Number,
 }
 
 impl DC4 {
@@ -33,6 +35,8 @@ impl DC4 {
             scale: 0,
             iradix: 10,
             oradix: 10,
+            current_str: String::new(),
+            current_num: Number::default(),
         }
     }
 
@@ -125,52 +129,38 @@ impl DC4 {
         }
     }
 
+    // Convenience function for pushing a number onto the stack. Negative sign must be given as an
+    // underscore ('_') character. Panics if the given string is not a valid number.
+    pub fn push_number(&mut self, input: &str) {
+        let mut num = Number::default();
+        for c in input.chars() {
+            num.push(c, self.iradix);
+        }
+        self.stack.push(num.finish(self.iradix));
+    }
+
+    // Convenience function for pushing a string directly onto the stack.
+    pub fn push_string(&mut self, string: impl Into<String>) {
+        self.stack.push(DCValue::Str(string.into()));
+    }
+
+    // Perform the given action.
+    // Any output gets written to the given writer, as well as any warnings.
+    // Errors get returned to the caller and are not written to the writer.
     pub fn action(&mut self, action: Action, w: &mut impl Write) -> Result<DCResult, DCError> {
         match action {
-            Action::PushNumber(s) => {
-                let mut n = BigInt::zero();
-                let mut shift = None;
-                let mut neg = false;
-                for c in s.chars() {
-                    match c {
-                        '_' => { neg = true; }
-                        '0' ... '9' | 'A' ... 'F' => {
-                            n *= self.iradix;
-                            n += c.to_digit(16).unwrap();
-                            if let Some(shift) = shift.as_mut() {
-                                *shift += 1;
-                            }
-                        }
-                        '.' => { shift = Some(0); }
-                        _ => panic!("unexpected character in PushNumber action: {:?}", c)
-                    }
-                }
-                if neg {
-                    n *= -1;
-                }
-                let mut real = BigReal::from(n);
-                if let Some(shift) = shift {
-                    if self.iradix == 10 {
-                        // shortcut: shift is a number of decimal digits. The input was given in
-                        // decimal, so just set the shift directly.
-                        real.set_shift(shift);
-                    } else {
-                        // Otherwise, we have to repeatedly divide by iradix to get the right
-                        // value. NOTE: the value 'shift' is the number of digits of input in
-                        // whatever base iradix is. BigReal will interpret this as being decimal
-                        // digits. THIS GOOFY NONSENSE IS WHAT dc ACTUALLY DOES. It can result in
-                        // truncation of the input unless it had extra trailing zeroes on it. (try:
-                        // "16i 1.F p" to see)
-                        let divisor = BigReal::from(self.iradix);
-                        for _ in 0 .. shift {
-                            real = real.div(&divisor, shift);
-                        }
-                    }
-                }
-                self.stack.push(DCValue::Num(real));
+            Action::NumberChar(c) => {
+                self.current_num.push(c, self.iradix);
             }
-            Action::PushString(s) => {
-                self.stack.push(DCValue::Str(s));
+            Action::PushNumber => {
+                let to_push = std::mem::replace(&mut self.current_num, Number::default());
+                self.stack.push(to_push.finish(self.iradix));
+            }
+            Action::StringChar(c) => {
+                self.current_str.push(c);
+            }
+            Action::PushString => {
+                self.stack.push(DCValue::Str(std::mem::replace(&mut self.current_str, String::new())));
             }
             Action::Register(action, register) => match action {
                 RegisterAction::Store => {
@@ -504,7 +494,7 @@ impl DC4 {
                 let depth = self.stack.len();
                 self.stack.push(DCValue::Num(BigReal::from(depth)));
             }
-            Action::ShellExec(_) => {
+            Action::ShellExec => {
                 return Err("running shell commands is not supported".into());
             }
             Action::Version => {
@@ -606,5 +596,56 @@ impl DC4 {
 
     fn error(&self, w: &mut impl Write, args: fmt::Arguments) {
         writeln!(w, "{}: {}", self.program_name, fmt::format(args)).unwrap();
+    }
+}
+
+// A number in the process of being built up from input.
+#[derive(Default)]
+struct Number {
+    int: BigInt,
+    shift: Option<u32>,
+    neg: bool,
+}
+
+impl Number {
+    pub fn push(&mut self, c: char, iradix: u32) {
+        match c {
+            '_' => { self.neg = true; }
+            '0' ... '9' | 'A' ... 'F' => {
+                self.int *= iradix;
+                self.int += c.to_digit(16).unwrap();
+                if let Some(shift) = self.shift.as_mut() {
+                    *shift += 1;
+                }
+            }
+            '.' => { self.shift = Some(0); }
+            _ => panic!("unexpected character in number: {:?}", c)
+        }
+    }
+
+    pub fn finish(mut self, iradix: u32) -> DCValue {
+        if self.neg {
+            self.int *= -1;
+        }
+        let mut real = BigReal::from(self.int);
+        if let Some(shift) = self.shift {
+            if iradix == 10 {
+                // shortcut: shift is a number of decimal digits. The input was given in
+                // decimal, so just set the shift directly.
+                real.set_shift(shift);
+            } else {
+                // Otherwise, we have to repeatedly divide by iradix to get the right
+                // value. NOTE: the value 'shift' is the number of digits of input in
+                // whatever base iradix is. BigReal will interpret this as being decimal
+                // digits. THIS GOOFY NONSENSE IS WHAT dc ACTUALLY DOES. It can result in
+                // truncation of the input unless it had extra trailing zeroes on it. (try:
+                // "16i 1.F p" to see)
+                let divisor = BigReal::from(iradix);
+                for _ in 0 .. shift {
+                    real = real.div(&divisor, shift);
+                }
+            }
+        }
+        DCValue::Num(real)
     }
 }

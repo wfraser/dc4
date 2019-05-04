@@ -20,8 +20,13 @@ impl Default for Parser {
 pub enum Action {
     // Where possible, keep things ordered like in the GNU dc man page.
 
-    PushNumber(String),
-    PushString(String),
+    // Numbers and strings have eac been split into two operations, to avoid having any buffering
+    // in the parser. The expectation is that these Actions will not be interleaved with any others.
+    // Also it can be assumed that any sequence of number character actions will always be valid.
+    NumberChar(char),
+    StringChar(char),
+    PushNumber,
+    PushString,
 
     Register(RegisterAction, char),
 
@@ -63,8 +68,8 @@ pub enum Action {
     NumFrxDigits,       // 'X'
     StackDepth,         // 'z'
 
-    /// NOTE: DC4 purposely does not implement this.
-    ShellExec(String),  // '!'
+    /// NOTE: DC4 purposely does not implement this or buffer the command to be executed.
+    ShellExec,          // '!'
 
     /// DC4 extension.
     Version,            // '@'
@@ -101,9 +106,9 @@ pub enum RegisterAction {
 enum ParseState {
     Start,
     Comment,
-    Number { buf: String, decimal: bool },
-    String { buf: String, level: usize },
-    ShellExec(String),
+    Number { decimal: bool },
+    String { level: usize },
+    ShellExec,
     Bang,
     TwoChar(RegisterAction),
 }
@@ -141,11 +146,11 @@ impl ParseState {
                 let action: Action = match self {
                     ParseState::Start => Action::Eof,
                     ParseState::Comment => Action::Eof,
-                    ParseState::Number { buf, decimal: _ } => Action::PushNumber(buf),
-                    ParseState::String { buf, level: _ } =>
+                    ParseState::Number { decimal: _ } => Action::PushNumber,
+                    ParseState::String { level: _ } =>
                         // Note: we push the string even if it is incomplete (unbalanced brackets).
-                        Action::PushString(buf),
-                    ParseState::ShellExec(buf) => Action::ShellExec(buf),
+                        Action::PushString,
+                    ParseState::ShellExec => Action::ShellExec,
                     ParseState::Bang =>
                         // GNU dc interprets this as an empty shell command and tries to run it
                         // This is pointless, so let's just ignore it.
@@ -165,7 +170,7 @@ impl ParseState {
                     (self, None),
 
                 '_' | '0' ... '9' | 'A' ... 'F' | '.' =>
-                    (ParseState::Number { buf: c.to_string(), decimal: c == '.' }, None),
+                    (ParseState::Number { decimal: c == '.' }, Some(Action::NumberChar(c))),
 
                 'p' => (self, Some(Action::Print)),
                 'n' => (self, Some(Action::PrintNoNewlinePop)),
@@ -199,7 +204,7 @@ impl ParseState {
                 'O' => (self, Some(Action::LoadOutputRadix)),
                 'K' => (self, Some(Action::LoadPrecision)),
 
-                '[' => (ParseState::String { buf: String::new(), level: 0 }, None),
+                '[' => (ParseState::String { level: 0 }, None),
                 'a' => (self, Some(Action::Asciify)),
                 'x' => (self, Some(Action::ExecuteMacro)),
 
@@ -227,56 +232,46 @@ impl ParseState {
                 '\n' => (ParseState::Start, None),
                 _ => (self, None),
             }
-            ParseState::Number { mut buf, decimal } => match c {
-                '_' =>
-                    (ParseState::Number { buf: c.to_string(), decimal: false },
-                        Some(Action::PushNumber(buf))),
+            ParseState::Number { decimal } => match c {
                 '0' ... '9' | 'A' ... 'F' => {
-                    buf.push(c);
-                    (ParseState::Number { buf, decimal }, None)
+                    (ParseState::Number { decimal }, Some(Action::NumberChar(c)))
                 }
-                '.' if decimal =>
-                    (ParseState::Number { buf: c.to_string(), decimal: true },
-                        Some(Action::PushNumber(buf))),
                 '.' if !decimal => {
-                    buf.push(c);
-                    (ParseState::Number { buf, decimal: true }, None)
+                    (ParseState::Number { decimal: true }, Some(Action::NumberChar(c)))
                 }
                 _ => {
-                    // Any other character means the number is complete, but it might also be an
-                    // action all by itself. We only return one action at a time, though, so put the
-                    // character back in the input Option to signal that we want it again next time.
+                    // Any of: a negative sign while we're already in a number, or a decimal sign
+                    // when we've already seen one, or any other non-number character. These all end
+                    // the current number and return us to the start state, but the character must
+                    // be handled on the next iteration. Put the character back in the input Option
+                    // to signal that we want it again next time.
                     *input = Some(c);
-                    (ParseState::Start, Some(Action::PushNumber(buf)))
+                    (ParseState::Start, Some(Action::PushNumber))
                 }
             }
-            ParseState::String { mut buf, level } => match c {
+            ParseState::String { level } => match c {
                 '[' => {
-                    buf.push(c);
-                    (ParseState::String { buf, level: level + 1 }, None)
+                    (ParseState::String { level: level + 1 }, Some(Action::StringChar(c)))
                 }
                 ']' if level > 0 => {
-                    buf.push(c);
-                    (ParseState::String { buf, level: level - 1 }, None)
+                    (ParseState::String { level: level - 1 }, Some(Action::StringChar(c)))
                 }
-                ']' if level == 0 => (ParseState::Start, Some(Action::PushString(buf))),
+                ']' if level == 0 => (ParseState::Start, Some(Action::PushString)),
                 _ => {
-                    buf.push(c);
-                    (ParseState::String { buf, level }, None)
+                    (ParseState::String { level }, Some(Action::StringChar(c)))
                 }
             }
-            ParseState::ShellExec(mut buf) => match c {
-                '\n' => (ParseState::Start, Some(Action::ShellExec(buf))),
+            ParseState::ShellExec => match c {
+                '\n' => (ParseState::Start, Some(Action::ShellExec)),
                 _ => {
-                    buf.push(c);
-                    (ParseState::ShellExec(buf), None)
+                    (ParseState::ShellExec, None)
                 }
             }
             ParseState::Bang => match c {
                 '>' => (ParseState::TwoChar(RegisterAction::Le), None),
                 '<' => (ParseState::TwoChar(RegisterAction::Ge), None),
                 '=' => (ParseState::TwoChar(RegisterAction::Ne), None),
-                _ => (ParseState::ShellExec(String::new()), None),
+                _ => (ParseState::ShellExec, None),
             }
             ParseState::TwoChar(action) => (ParseState::Start, Some(Action::Register(action, c))),
         }
