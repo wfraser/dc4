@@ -16,7 +16,7 @@ use std::io::{self, BufRead, Write};
 
 struct Input<R: BufRead> {
     inner: R,
-    buf: String,
+    buf: Vec<u8>,
     decimal: bool,
 }
 
@@ -24,14 +24,14 @@ impl<R: BufRead> Input<R> {
     pub fn new(byte_reader: R) -> Self {
         Self {
             inner: byte_reader,
-            buf: String::new(),
+            buf: vec![],
             decimal: false,
         }
     }
 }
 
 impl<R: BufRead> Iterator for Input<R> {
-    type Item = io::Result<String>;
+    type Item = io::Result<Vec<u8>>;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             // The only valid input to this program is in [0-9.-] which are all ASCII, so this
@@ -40,7 +40,7 @@ impl<R: BufRead> Iterator for Input<R> {
             let mut buf = [0u8];
             let c = match self.inner.read(&mut buf) {
                 Ok(0) => None,
-                Ok(1) => Some(Ok(buf[0] as char)),
+                Ok(1) => Some(Ok(buf[0])),
                 Ok(_) => unreachable!(),
                 Err(e) => Some(Err(e)),
             };
@@ -50,41 +50,43 @@ impl<R: BufRead> Iterator for Input<R> {
                         return None;
                     } else {
                         self.decimal = false;
-                        return Some(Ok(std::mem::replace(&mut self.buf, String::new())));
+                        return Some(Ok(self.buf.split_off(0)));
                     }
                 }
                 Some(Err(e)) => {
                     return Some(Err(e));
                 }
                 Some(Ok(c)) => {
-                    if c.is_whitespace() {
+                    if (c as char).is_whitespace() {
                         if !self.buf.is_empty() {
                             self.decimal = false;
-                            return Some(Ok(std::mem::replace(&mut self.buf, String::new())));
+                            return Some(Ok(self.buf.split_off(0)));
                         }
-                    } else if c == '.' {
+                    } else if c == b'.' {
                         if self.decimal {
                             return Some(Err(io::Error::new(
                                 io::ErrorKind::InvalidData,
-                                format!("invalid number in input: \"{}{}\"", self.buf, c))));
+                                format!("invalid number in input: \"{}{}\"",
+                                    String::from_utf8_lossy(&self.buf), c as char))));
                         } else {
                             self.decimal = true;
                             self.buf.push(c);
                         }
-                    } else if c == '-' {
+                    } else if c == b'-' {
                         if self.buf.is_empty() {
                             self.buf.push(c);
                         } else {
                             return Some(Err(io::Error::new(
                                 io::ErrorKind::InvalidData,
-                                format!("invalid number in input: \"{}{}\"", self.buf, c))));
+                                format!("invalid number in input: \"{}{}\"",
+                                    String::from_utf8_lossy(&self.buf), c as char))));
                         }
-                    } else if c >= '0' && c <= '9' {
+                    } else if c >= b'0' && c <= b'9' {
                         self.buf.push(c);
                     } else {
                         return Some(Err(io::Error::new(
                             io::ErrorKind::InvalidData,
-                            format!("invalid character in input: {:?}", c))));
+                            format!("invalid character in input: {:?}", c as char))));
                     }
                 }
             }
@@ -161,27 +163,24 @@ fn run(r: impl BufRead, mut w: impl Write) -> Result<(), Result<dc4::DCResult, d
         });
 
     if opts.oradix != 10 {
-        dc.push_number(&opts.oradix.to_string());
+        dc.push_number(&opts.oradix.to_string().into_bytes());
         action(&mut dc, Action::SetOutputRadix, &mut w)?;
     }
     if opts.iradix != 10 {
-        dc.push_number(&opts.iradix.to_string());
+        dc.push_number(&opts.iradix.to_string().into_bytes());
         action(&mut dc, Action::SetInputRadix, &mut w)?;
     }
 
     // initial value
-    dc.push_number("0");
+    dc.push_number(b"0");
 
     for result in Input::new(r) {
         match result {
             Ok(mut s) => {
-                if s.starts_with('-') {
+                if s.starts_with(b"-") {
                     // dc uses '_' to designate negative numbers because '-' is used for
                     // subtraction, so replace it.
-                    unsafe {
-                        // safe because we're replacing a 1-byte character with another.
-                        s.as_bytes_mut()[0] = b'_';
-                    }
+                    s[0] = b'_';
                 }
                 dc.push_number(&s);
                 action(&mut dc, Action::Add, &mut w)?;

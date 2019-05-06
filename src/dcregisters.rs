@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use num::traits::Zero;
 use super::big_real::BigReal;
-use super::{DCError, DCValue};
+use super::DCValue;
 
 const MAX_REGISTER: usize = 255;
 
@@ -27,18 +27,13 @@ impl DCRegisters {
         }
     }
 
-    pub fn get(&self, c: char) -> Result<&DCRegisterStack, DCError> {
-        self.registers.get(c as usize).ok_or_else(|| invalid_register_error(c))
+    pub fn get(&self, c: u8) -> &DCRegisterStack {
+        &self.registers[c as usize]
     }
 
-    pub fn get_mut(&mut self, c: char) -> Result<&mut DCRegisterStack, DCError> {
-        self.registers.get_mut(c as usize).ok_or_else(|| invalid_register_error(c))
+    pub fn get_mut(&mut self, c: u8) -> &mut DCRegisterStack {
+        &mut self.registers[c as usize]
     }
-}
-
-fn invalid_register_error(c: char) -> DCError {
-    format!("invalid register '{}' ({}); must be in range 0 - {}", c, c as usize, MAX_REGISTER)
-        .into()
 }
 
 pub struct DCRegisterStack {

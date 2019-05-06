@@ -1,14 +1,13 @@
-use std::io::BufRead;
+use std::io::{Read, Bytes};
 use parser::{Parser, Action};
-use utf8_read_iterator::{Utf8ReadIterator, Utf8ReadError};
 
-pub struct ByteActionParser<R: BufRead> {
-    inner: Option<Utf8ReadIterator<R>>,
+pub struct ReaderParser<R: Read> {
+    inner: Option<Bytes<R>>,
     parser: Parser,
-    stashed: Option<char>,
+    stashed: Option<u8>,
 }
 
-impl<R: BufRead> Iterator for ByteActionParser<R> {
+impl<R: Read> Iterator for ReaderParser<R> {
     type Item = Action;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -19,17 +18,12 @@ impl<R: BufRead> Iterator for ByteActionParser<R> {
                     Some(c)
                 } else if let Some(mut inner) = self.inner.take() {
                     match inner.next() {
-                        Some(Err(Utf8ReadError::Io(e))) => {
-                            return Some(Action::InputError(format!("I/O error reading input: {}", e)));
-                        }
-                        Some(Err(Utf8ReadError::Invalid(bytes))) => {
-                            self.stashed = Some('\u{FFFD}');
-                            self.inner = Some(inner);
-                            return Some(Action::InputError(format!("invalid UTF-8 in input: {:x?}", bytes)));
-                        }
                         Some(Ok(c)) => {
                             self.inner = Some(inner); // restore inner iterator
                             Some(c)
+                        }
+                        Some(Err(e)) => {
+                            return Some(Action::InputError(format!("I/O error reading input: {}", e)));
                         }
                         None => None,
                     }
@@ -54,10 +48,10 @@ impl<R: BufRead> Iterator for ByteActionParser<R> {
     }
 }
 
-impl<R: BufRead> ByteActionParser<R> {
+impl<R: Read> ReaderParser<R> {
     pub fn new(input: R) -> Self {
         Self {
-            inner: Some(Utf8ReadIterator::new(input)),
+            inner: Some(input.bytes()),
             parser: Parser::default(),
             stashed: None,
         }

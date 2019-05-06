@@ -23,12 +23,12 @@ pub enum Action {
     // Numbers and strings have eac been split into two operations, to avoid having any buffering
     // in the parser. The expectation is that these Actions will not be interleaved with any others.
     // Also it can be assumed that any sequence of number character actions will always be valid.
-    NumberChar(char),
-    StringChar(char),
+    NumberChar(u8),
+    StringChar(u8),
     PushNumber,
     PushString,
 
-    Register(RegisterAction, char),
+    Register(RegisterAction, u8),
 
     Print,              // 'p'
     PrintNoNewlinePop,  // 'n'
@@ -80,7 +80,7 @@ pub enum Action {
     // Errors:
 
     /// Unimplemented (or unrecognized) command.
-    Unimplemented(char),
+    Unimplemented(u8),
 
     /// Something went wrong reading or parsing input.
     InputError(String),
@@ -114,7 +114,7 @@ enum ParseState {
 }
 
 impl Parser {
-    pub fn next(&mut self, mut input: impl Iterator<Item=char>) -> Action {
+    pub fn next(&mut self, mut input: impl Iterator<Item=u8>) -> Action {
         let mut c = input.next();
         loop {
             if let Some(action) = self.step(&mut c) {
@@ -126,7 +126,7 @@ impl Parser {
         }
     }
 
-    pub fn step(&mut self, input: &mut Option<char>) -> Option<Action> {
+    pub fn step(&mut self, input: &mut Option<u8>) -> Option<Action> {
         let (new_state, result) = self.state.take().unwrap().next(input);
         self.state = Some(new_state);
         result
@@ -137,7 +137,7 @@ impl ParseState {
     /// Given the current state and an input character, return the new state and maybe an Action.
     /// If `input` is None after this call, it means the character was consumed. If not, it should
     /// be re-issued again.
-    pub fn next(self, input: &mut Option<char>) -> (Self, Option<Action>) {
+    pub fn next(self, input: &mut Option<u8>) -> (Self, Option<Action>) {
         let c = match input.take() {
             Some(c) => c,
             None => {
@@ -166,77 +166,77 @@ impl ParseState {
             ParseState::Start => match c {
                 // Where possible, keep things ordered like in the GNU dc man page.
 
-                ' ' | '\t' | '\r' | '\n' =>
+                b' ' | b'\t' | b'\r' | b'\n' =>
                     (self, None),
 
-                '_' | '0' ... '9' | 'A' ... 'F' | '.' =>
-                    (ParseState::Number { decimal: c == '.' }, Some(Action::NumberChar(c))),
+                b'_' | b'0' ... b'9' | b'A' ... b'F' | b'.' =>
+                    (ParseState::Number { decimal: c == b'.' }, Some(Action::NumberChar(c))),
 
-                'p' => (self, Some(Action::Print)),
-                'n' => (self, Some(Action::PrintNoNewlinePop)),
-                'P' => (self, Some(Action::PrintBytesPop)),
-                'f' => (self, Some(Action::PrintStack)),
+                b'p' => (self, Some(Action::Print)),
+                b'n' => (self, Some(Action::PrintNoNewlinePop)),
+                b'P' => (self, Some(Action::PrintBytesPop)),
+                b'f' => (self, Some(Action::PrintStack)),
 
-                '+' => (self, Some(Action::Add)),
-                '-' => (self, Some(Action::Sub)),
-                '*' => (self, Some(Action::Mul)),
-                '/' => (self, Some(Action::Div)),
-                '%' => (self, Some(Action::Rem)),
-                '~' => (self, Some(Action::DivRem)),
-                '^' => (self, Some(Action::Exp)),
-                '|' => (self, Some(Action::ModExp)),
-                'v' => (self, Some(Action::Sqrt)),
+                b'+' => (self, Some(Action::Add)),
+                b'-' => (self, Some(Action::Sub)),
+                b'*' => (self, Some(Action::Mul)),
+                b'/' => (self, Some(Action::Div)),
+                b'%' => (self, Some(Action::Rem)),
+                b'~' => (self, Some(Action::DivRem)),
+                b'^' => (self, Some(Action::Exp)),
+                b'|' => (self, Some(Action::ModExp)),
+                b'v' => (self, Some(Action::Sqrt)),
 
-                'c' => (self, Some(Action::ClearStack)),
-                'd' => (self, Some(Action::Dup)),
-                'r' => (self, Some(Action::Swap)),
-                'R' => (self, Some(Action::Rotate)),
+                b'c' => (self, Some(Action::ClearStack)),
+                b'd' => (self, Some(Action::Dup)),
+                b'r' => (self, Some(Action::Swap)),
+                b'R' => (self, Some(Action::Rotate)),
 
-                's' => (ParseState::TwoChar(RegisterAction::Store), None),
-                'l' => (ParseState::TwoChar(RegisterAction::Load), None),
-                'S' => (ParseState::TwoChar(RegisterAction::PushRegStack), None),
-                'L' => (ParseState::TwoChar(RegisterAction::PopRegStack), None),
+                b's' => (ParseState::TwoChar(RegisterAction::Store), None),
+                b'l' => (ParseState::TwoChar(RegisterAction::Load), None),
+                b'S' => (ParseState::TwoChar(RegisterAction::PushRegStack), None),
+                b'L' => (ParseState::TwoChar(RegisterAction::PopRegStack), None),
 
-                'i' => (self, Some(Action::SetInputRadix)),
-                'o' => (self, Some(Action::SetOutputRadix)),
-                'k' => (self, Some(Action::SetPrecision)),
-                'I' => (self, Some(Action::LoadInputRadix)),
-                'O' => (self, Some(Action::LoadOutputRadix)),
-                'K' => (self, Some(Action::LoadPrecision)),
+                b'i' => (self, Some(Action::SetInputRadix)),
+                b'o' => (self, Some(Action::SetOutputRadix)),
+                b'k' => (self, Some(Action::SetPrecision)),
+                b'I' => (self, Some(Action::LoadInputRadix)),
+                b'O' => (self, Some(Action::LoadOutputRadix)),
+                b'K' => (self, Some(Action::LoadPrecision)),
 
-                '[' => (ParseState::String { level: 0 }, None),
-                'a' => (self, Some(Action::Asciify)),
-                'x' => (self, Some(Action::ExecuteMacro)),
+                b'[' => (ParseState::String { level: 0 }, None),
+                b'a' => (self, Some(Action::Asciify)),
+                b'x' => (self, Some(Action::ExecuteMacro)),
 
-                '!' => (ParseState::Bang, None),
-                '>' => (ParseState::TwoChar(RegisterAction::Gt), None),
-                '<' => (ParseState::TwoChar(RegisterAction::Lt), None),
-                '=' => (ParseState::TwoChar(RegisterAction::Eq), None),
-                '?' => (self, Some(Action::Input)),
-                'q' => (self, Some(Action::Quit)),
-                'Q' => (self, Some(Action::QuitLevels)),
+                b'!' => (ParseState::Bang, None),
+                b'>' => (ParseState::TwoChar(RegisterAction::Gt), None),
+                b'<' => (ParseState::TwoChar(RegisterAction::Lt), None),
+                b'=' => (ParseState::TwoChar(RegisterAction::Eq), None),
+                b'?' => (self, Some(Action::Input)),
+                b'q' => (self, Some(Action::Quit)),
+                b'Q' => (self, Some(Action::QuitLevels)),
 
-                'Z' => (self, Some(Action::NumDigits)),
-                'X' => (self, Some(Action::NumFrxDigits)),
-                'z' => (self, Some(Action::StackDepth)),
+                b'Z' => (self, Some(Action::NumDigits)),
+                b'X' => (self, Some(Action::NumFrxDigits)),
+                b'z' => (self, Some(Action::StackDepth)),
 
-                '#' => (ParseState::Comment, None),
-                ':' => (ParseState::TwoChar(RegisterAction::StoreRegArray), None),
-                ';' => (ParseState::TwoChar(RegisterAction::LoadRegArray), None),
+                b'#' => (ParseState::Comment, None),
+                b':' => (ParseState::TwoChar(RegisterAction::StoreRegArray), None),
+                b';' => (ParseState::TwoChar(RegisterAction::LoadRegArray), None),
 
-                '@' => (self, Some(Action::Version)),
+                b'@' => (self, Some(Action::Version)),
 
                 _ => (self, Some(Action::Unimplemented(c))),
             },
             ParseState::Comment => match c {
-                '\n' => (ParseState::Start, None),
+                b'\n' => (ParseState::Start, None),
                 _ => (self, None),
             }
             ParseState::Number { decimal } => match c {
-                '0' ... '9' | 'A' ... 'F' => {
+                b'0' ... b'9' | b'A' ... b'F' => {
                     (ParseState::Number { decimal }, Some(Action::NumberChar(c)))
                 }
-                '.' if !decimal => {
+                b'.' if !decimal => {
                     (ParseState::Number { decimal: true }, Some(Action::NumberChar(c)))
                 }
                 _ => {
@@ -250,27 +250,25 @@ impl ParseState {
                 }
             }
             ParseState::String { level } => match c {
-                '[' => {
+                b'[' => {
                     (ParseState::String { level: level + 1 }, Some(Action::StringChar(c)))
                 }
-                ']' if level > 0 => {
+                b']' if level > 0 => {
                     (ParseState::String { level: level - 1 }, Some(Action::StringChar(c)))
                 }
-                ']' if level == 0 => (ParseState::Start, Some(Action::PushString)),
+                b']' if level == 0 => (ParseState::Start, Some(Action::PushString)),
                 _ => {
                     (ParseState::String { level }, Some(Action::StringChar(c)))
                 }
             }
             ParseState::ShellExec => match c {
-                '\n' => (ParseState::Start, Some(Action::ShellExec)),
-                _ => {
-                    (ParseState::ShellExec, None)
-                }
+                b'\n' => (ParseState::Start, Some(Action::ShellExec)),
+                _ => (ParseState::ShellExec, None),
             }
             ParseState::Bang => match c {
-                '>' => (ParseState::TwoChar(RegisterAction::Le), None),
-                '<' => (ParseState::TwoChar(RegisterAction::Ge), None),
-                '=' => (ParseState::TwoChar(RegisterAction::Ne), None),
+                b'>' => (ParseState::TwoChar(RegisterAction::Le), None),
+                b'<' => (ParseState::TwoChar(RegisterAction::Ge), None),
+                b'=' => (ParseState::TwoChar(RegisterAction::Ne), None),
                 _ => (ParseState::ShellExec, None),
             }
             ParseState::TwoChar(action) => (ParseState::Start, Some(Action::Register(action, c))),

@@ -9,12 +9,16 @@ extern crate dc4;
 use std::io::Cursor;
 
 fn dc4_run(expr: &[u8]) -> String {
+    String::from_utf8(dc4_run_bytes(expr)).unwrap()
+}
+
+fn dc4_run_bytes(expr: &[u8]) -> Vec<u8> {
     let mut dc = dc4::DC4::new("dc4 cargo test".to_string());
     let mut out = Vec::<u8>::new();
 
     dc.program(&mut Cursor::new(expr), &mut out);
 
-    String::from_utf8(out).unwrap()
+    out
 }
 
 fn dc4_run_two(expr1: &[u8], expr2: &[u8]) -> String {
@@ -324,16 +328,13 @@ fn test_utf8() {
     assert_eq!(dc4_run("[Ā‡🎅]f sa f la f".as_bytes()), "Ā‡🎅\nĀ‡🎅\n");
     assert_eq!(dc4_run("[[Ā‡🎅]f]x".as_bytes()), "Ā‡🎅\n");
     assert_eq!(dc4_run("[🎅]s🎅".as_bytes()),
-        "dc4 cargo test: invalid register \'🎅\' (127877); must be in range 0 - 255\n");
-    assert_eq!(dc4_run(b"42 [\xc3\x28] f"),
-        "dc4 cargo test: invalid UTF-8 in input: [c3]\n\u{FFFD}\x28\n42\n");
-    assert_eq!(dc4_run(b"[\xf8\xa1\xa1\xa1\xa1]f"),
-        "dc4 cargo test: invalid UTF-8 in input: [f8]\n\
-         dc4 cargo test: invalid UTF-8 in input: [a1]\n\
-         dc4 cargo test: invalid UTF-8 in input: [a1]\n\
-         dc4 cargo test: invalid UTF-8 in input: [a1]\n\
-         dc4 cargo test: invalid UTF-8 in input: [a1]\n\
-         \u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}\n");
+        "dc4 cargo test: \'\\u{9f}\' (0237) unimplemented\n\
+        dc4 cargo test: \'\\u{8e}\' (0216) unimplemented\n\
+        dc4 cargo test: \'\\u{85}\' (0205) unimplemented\n");
+
+    // now some invalid UTF8 in input, which is allowed:
+    assert!(dc4_run_bytes(b"42 [\xc3\x28] f") == b"\xc3\x28\n42\n");
+    assert!(dc4_run_bytes(b"[\xf8\xa1\xa1\xa1\xa1]f") == b"\xf8\xa1\xa1\xa1\xa1\n");
 }
 
 #[test]

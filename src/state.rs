@@ -10,9 +10,9 @@ use num::BigInt;
 use num::traits::{ToPrimitive, Zero};
 
 use big_real::BigReal;
-use byte_parser::ByteActionParser;
 use dcregisters::DCRegisters;
 use parser::{Action, RegisterAction, Parser};
+use reader_parser::ReaderParser;
 use ::{DCValue, DCResult, DCError};
 
 pub struct DC4 {
@@ -22,7 +22,7 @@ pub struct DC4 {
     scale: u32,
     iradix: u32,
     oradix: u32,
-    current_str: String,
+    current_str: Vec<u8>,
     current_num: Number,
 }
 
@@ -35,13 +35,13 @@ impl DC4 {
             scale: 0,
             iradix: 10,
             oradix: 10,
-            current_str: String::new(),
+            current_str: vec![],
             current_num: Number::default(),
         }
     }
 
     pub fn program(&mut self, r: &mut impl BufRead, w: &mut impl Write) -> DCResult {
-        for action in ByteActionParser::new(r) {
+        for action in ReaderParser::new(r) {
             let mut result = self.action(action, w);
             if let Ok(DCResult::Macro(text)) = result {
                 result = self.run_macro(text, w);
@@ -60,7 +60,7 @@ impl DC4 {
         DCResult::Continue
     }
 
-    pub fn run_macro(&mut self, mut text: String, w: &mut impl Write) -> Result<DCResult, DCError> {
+    pub fn run_macro(&mut self, mut text: Vec<u8>, w: &mut impl Write) -> Result<DCResult, DCError> {
         let mut parser = Parser::default();
         let mut tail_recursion_depth = 0;
         let mut pos = 0;
@@ -68,8 +68,9 @@ impl DC4 {
         let mut advance = 0;
         loop {
             if cur.is_none() {
-                cur = (&text[pos..]).chars().next();
-                advance = cur.map(|c| c.len_utf8()).unwrap_or(0);
+                cur = (&text[pos..]).first().cloned();
+                //advance = cur.map(|c| c.len_utf8()).unwrap_or(0);
+                advance = if cur.is_some() { 1 } else { 0 };
             }
 
             let action = parser.step(&mut cur);
@@ -131,16 +132,16 @@ impl DC4 {
 
     // Convenience function for pushing a number onto the stack. Negative sign must be given as an
     // underscore ('_') character. Panics if the given string is not a valid number.
-    pub fn push_number(&mut self, input: &str) {
+    pub fn push_number(&mut self, input: &[u8]) {
         let mut num = Number::default();
-        for c in input.chars() {
-            num.push(c, self.iradix);
+        for c in input {
+            num.push(*c, self.iradix);
         }
         self.stack.push(num.finish(self.iradix));
     }
 
     // Convenience function for pushing a string directly onto the stack.
-    pub fn push_string(&mut self, string: impl Into<String>) {
+    pub fn push_string(&mut self, string: impl Into<Vec<u8>>) {
         self.stack.push(DCValue::Str(string.into()));
     }
 
@@ -160,31 +161,32 @@ impl DC4 {
                 self.current_str.push(c);
             }
             Action::PushString => {
-                self.stack.push(DCValue::Str(std::mem::replace(&mut self.current_str, String::new())));
+                //self.stack.push(DCValue::Str(std::mem::replace(&mut self.current_str, vec![])));
+                self.stack.push(DCValue::Str(self.current_str.split_off(0)));
             }
             Action::Register(action, register) => match action {
                 RegisterAction::Store => {
                     let value = self.pop_top()?;
-                    self.registers.get_mut(register)?.set(value);
+                    self.registers.get_mut(register).set(value);
                 }
                 RegisterAction::Load => {
-                    match self.registers.get(register)?.value() {
+                    match self.registers.get(register).value() {
                         Some(value) => self.stack.push(value.clone()),
                         None => return Err(
                             format!("register '{}' (0{:o}) is empty",
-                                register, register as u32).into()),
+                                register as char, register as u32).into()),
                     }
                 }
                 RegisterAction::PushRegStack => {
                     let value = self.pop_top()?;
-                    self.registers.get_mut(register)?.push(value);
+                    self.registers.get_mut(register).push(value);
                 }
                 RegisterAction::PopRegStack => {
-                    match self.registers.get_mut(register)?.pop() {
+                    match self.registers.get_mut(register).pop() {
                         Some(value) => self.stack.push(value),
                         None => return Err(
                             format!("stack register '{}' (0{:o}) is empty",
-                                register, register as u32).into()),
+                                register as char, register as u32).into()),
                     }
                 }
                 RegisterAction::Gt => return Ok(self.cond_macro(register, |a,b| b>a)?),
@@ -208,14 +210,13 @@ impl DC4 {
                     match maybe_key {
                         None => return Err("array index must be a nonnegative integer".into()),
                         Some(key) => {
-                            self.registers.get_mut(register)?
-                                .array_store(key, value);
+                            self.registers.get_mut(register).array_store(key, value);
                         }
                     }
                 }
                 RegisterAction::LoadRegArray => match self.pop_top()? {
                     DCValue::Num(ref n) if !n.is_negative() => {
-                        let value = self.registers.get(register)?
+                        let value = self.registers.get(register)
                             .array_load(n)
                             .as_ref()
                             .clone();
@@ -238,7 +239,7 @@ impl DC4 {
             }
             Action::PrintBytesPop => {
                 match self.pop_top()? {
-                    DCValue::Str(s) => { write!(w, "{}", s).unwrap(); },
+                    DCValue::Str(s) => { w.write_all(&s).unwrap(); }
                     DCValue::Num(n) => {
                         let (_sign, bytes) = n.to_int().to_bytes_be();
                         w.write_all(&bytes).unwrap();
@@ -451,14 +452,12 @@ impl DC4 {
             Action::LoadPrecision => self.stack.push(DCValue::Num(BigReal::from(self.scale))),
             Action::Asciify => match self.pop_top()? {
                 DCValue::Str(mut s) => {
-                    if let Some((len, _char)) = s.char_indices().nth(1) {
-                        s.truncate(len);
-                    }
+                    s.truncate(1);
                     self.stack.push(DCValue::Str(s));
                 }
                 DCValue::Num(n) => {
                     let (_sign, bytes) = n.to_int().to_bytes_le();
-                    self.stack.push(DCValue::Str(format!("{}", bytes[0] as char)));
+                    self.stack.push(DCValue::Str(format!("{}", bytes[0] as char).into_bytes()));
                 }
             }
             Action::ExecuteMacro => match self.pop_top()? {
@@ -466,8 +465,10 @@ impl DC4 {
                 other => self.stack.push(other),
             }
             Action::Input => {
-                let mut line = String::new();
-                if let Err(e) = io::stdin().read_line(&mut line) {
+                let mut line = vec![];
+                let stdin = io::stdin();
+                let mut handle = stdin.lock();
+                if let Err(e) = handle.read_until(b'\n', &mut line) {
                     writeln!(w, "warning: error reading input: {}", e).unwrap();
                 }
                 return Ok(DCResult::Macro(line));
@@ -502,11 +503,11 @@ impl DC4 {
                         | env!("CARGO_PKG_VERSION_MINOR").parse::<u64>().unwrap() << 16
                         | env!("CARGO_PKG_VERSION_PATCH").parse::<u64>().unwrap();
                 self.stack.push(DCValue::Num(BigReal::from(ver)));
-                self.stack.push(DCValue::Str("dc4".to_owned()));
+                self.stack.push(DCValue::Str("dc4".to_owned().into_bytes()));
             }
             Action::Eof => (), // nothing to do
             Action::Unimplemented(c) => {
-                return Err(format!("{:?} (0{:o}) unimplemented", c, c as u32).into());
+                return Err(format!("{:?} (0{:o}) unimplemented", c as char, c as u32).into());
             }
             Action::InputError(msg) => {
                 return Err(msg.into());
@@ -524,7 +525,7 @@ impl DC4 {
             } else {
                 write!(w, "{}", n.to_str_radix(self.oradix).to_uppercase())
             }
-            DCValue::Str(ref s) => write!(w, "{}", s),
+            DCValue::Str(ref s) => w.write_all(&s),
         }.unwrap();
     }
 
@@ -578,15 +579,15 @@ impl DC4 {
         Ok(())
     }
 
-    fn cond_macro<F>(&mut self, register: char, f: F) -> Result<DCResult, DCError>
+    fn cond_macro<F>(&mut self, register: u8, f: F) -> Result<DCResult, DCError>
         where F: Fn(&BigReal, &BigReal) -> bool
     {
         if self.binary_lambda(|a, b| Ok(f(a, b)))? {
-            let text = match self.registers.get(register)?.value() {
+            let text = match self.registers.get(register).value() {
                 Some(DCValue::Str(s)) => s.to_owned(),
                 Some(DCValue::Num(_)) => return Ok(DCResult::Continue),
                 None => return Err(
-                    format!("register '{}' (0{:o}) is empty", register, register as u32).into()),
+                    format!("register '{}' (0{:o}) is empty", register as char, register as u32).into()),
             };
             Ok(DCResult::Macro(text))
         } else {
@@ -608,17 +609,17 @@ struct Number {
 }
 
 impl Number {
-    pub fn push(&mut self, c: char, iradix: u32) {
+    pub fn push(&mut self, c: u8, iradix: u32) {
         match c {
-            '_' => { self.neg = true; }
-            '0' ... '9' | 'A' ... 'F' => {
+            b'_' => { self.neg = true; }
+            b'0' ... b'9' | b'A' ... b'F' => {
                 self.int *= iradix;
-                self.int += c.to_digit(16).unwrap();
+                self.int += (c as char).to_digit(16).unwrap();
                 if let Some(shift) = self.shift.as_mut() {
                     *shift += 1;
                 }
             }
-            '.' => { self.shift = Some(0); }
+            b'.' => { self.shift = Some(0); }
             _ => panic!("unexpected character in number: {:?}", c)
         }
     }

@@ -7,17 +7,16 @@
 extern crate num;
 
 mod big_real;
-mod byte_parser;
 mod dcregisters;
 pub mod parser;
+mod reader_parser;
 mod state;
-mod utf8_read_iterator;
 
 pub use state::DC4;
 
 #[derive(Clone, Debug)]
 pub enum DCValue {
-    Str(String),
+    Str(Vec<u8>),
     Num(big_real::BigReal)
 }
 
@@ -26,7 +25,7 @@ pub enum DCResult {
     Terminate(u32),
     QuitLevels(u32),
     Continue,
-    Macro(String),
+    Macro(Vec<u8>),
 }
 
 #[derive(Debug)]
@@ -56,4 +55,3 @@ impl Into<DCError> for &'static str {
         DCError::StaticMessage(self)
     }
 }
-
