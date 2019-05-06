@@ -1,6 +1,6 @@
 [[package]]
 name = "dc4"
-version = "1.1.3"
+version = "2.0.0-pre"
 dependencies = [
  "num 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winres 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
