@@ -49,8 +49,10 @@ impl Dc4 {
     /// Run a given program text as if it was a macro.
     ///
     /// Errors do not stop the program; they are written to output, but execution continues.
-    pub fn text(&mut self, text: impl Into<Vec<u8>>, w: &mut impl Write) -> DcResult {
-        self.state.run_macro(text.into(), w)
+    pub fn text(&mut self, text: impl AsRef<[u8]>, w: &mut impl Write) -> DcResult {
+        let actions = parser::Parser::default()
+            .parse(text.as_ref().iter().cloned());
+        self.state.run_macro(Rc::new(actions), w)
     }
 
     /// Run a program from an iterator of actions.
@@ -97,10 +99,44 @@ impl Dc4 {
     }
 }
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 #[derive(Clone, Debug)]
 pub enum DcValue {
-    Str(Vec<u8>),
+    Str(DcString),
     Num(big_real::BigReal)
+}
+
+#[derive(Clone, Debug)]
+pub struct DcString {
+    bytes: Vec<u8>,
+    actions: Rc<RefCell<Option<Rc<Vec<parser::Action>>>>>, // lol
+}
+
+impl DcString {
+    pub fn new(bytes: Vec<u8>) -> Self {
+        Self {
+            bytes,
+            actions: Rc::new(RefCell::new(None)),
+        }
+    }
+
+    pub fn actions(&self) -> Rc<Vec<parser::Action>> {
+        if self.actions.borrow().is_none() {
+            let actions = parser::Parser::default().parse(self.bytes.iter().cloned());
+            *self.actions.borrow_mut() = Some(Rc::new(actions));
+        }
+        self.actions.borrow().as_ref().unwrap().clone()
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.bytes
+    }
 }
 
 #[derive(Debug)]
@@ -108,7 +144,7 @@ pub enum DcResult {
     Terminate(u32),
     QuitLevels(u32),
     Continue,
-    Macro(Vec<u8>),
+    Macro(Rc<Vec<parser::Action>>),
 }
 
 #[derive(Debug)]
