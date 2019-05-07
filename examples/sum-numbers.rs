@@ -12,39 +12,33 @@
 extern crate dc4;
 use dc4::DC4;
 use dc4::parser::Action;
-use std::io::{self, BufRead, Write};
+use std::io::{self, Bytes, Read, Write};
 
-struct Input<R: BufRead> {
-    inner: R,
+struct Input<R: Read> {
+    inner: Bytes<R>,
     buf: Vec<u8>,
     decimal: bool,
 }
 
-impl<R: BufRead> Input<R> {
-    pub fn new(byte_reader: R) -> Self {
+impl<R: Read> Input<R> {
+    pub fn new(reader: R) -> Self {
         Self {
-            inner: byte_reader,
+            inner: reader.bytes(),
             buf: vec![],
             decimal: false,
         }
     }
 }
 
-impl<R: BufRead> Iterator for Input<R> {
+impl<R: Read> Iterator for Input<R> {
     type Item = io::Result<Vec<u8>>;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            // The only valid input to this program is in [0-9.-] which are all ASCII, so this
-            // simply reads input by bytes. It'd be easy enough to read UTF-8 instead, though, and
-            // that's what dc's parser does.
-            let mut buf = [0u8];
-            let c = match self.inner.read(&mut buf) {
-                Ok(0) => None,
-                Ok(1) => Some(Ok(buf[0])),
-                Ok(_) => unreachable!(),
-                Err(e) => Some(Err(e)),
-            };
-            match c {
+            let c = match self.inner.next() {
+                Some(Ok(c)) => c,
+                Some(Err(e)) => {
+                    return Some(Err(e));
+                }
                 None => {
                     if self.buf.is_empty() {
                         return None;
@@ -53,42 +47,38 @@ impl<R: BufRead> Iterator for Input<R> {
                         return Some(Ok(self.buf.split_off(0)));
                     }
                 }
-                Some(Err(e)) => {
-                    return Some(Err(e));
+            };
+
+            if (c as char).is_whitespace() {
+                if !self.buf.is_empty() {
+                    self.decimal = false;
+                    return Some(Ok(self.buf.split_off(0)));
                 }
-                Some(Ok(c)) => {
-                    if (c as char).is_whitespace() {
-                        if !self.buf.is_empty() {
-                            self.decimal = false;
-                            return Some(Ok(self.buf.split_off(0)));
-                        }
-                    } else if c == b'.' {
-                        if self.decimal {
-                            return Some(Err(io::Error::new(
-                                io::ErrorKind::InvalidData,
-                                format!("invalid number in input: \"{}{}\"",
-                                    String::from_utf8_lossy(&self.buf), c as char))));
-                        } else {
-                            self.decimal = true;
-                            self.buf.push(c);
-                        }
-                    } else if c == b'-' {
-                        if self.buf.is_empty() {
-                            self.buf.push(c);
-                        } else {
-                            return Some(Err(io::Error::new(
-                                io::ErrorKind::InvalidData,
-                                format!("invalid number in input: \"{}{}\"",
-                                    String::from_utf8_lossy(&self.buf), c as char))));
-                        }
-                    } else if c >= b'0' && c <= b'9' {
-                        self.buf.push(c);
-                    } else {
-                        return Some(Err(io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            format!("invalid character in input: {:?}", c as char))));
-                    }
+            } else if c == b'.' {
+                if self.decimal {
+                    return Some(Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("invalid number in input: \"{}{}\"",
+                            String::from_utf8_lossy(&self.buf), c as char))));
+                } else {
+                    self.decimal = true;
+                    self.buf.push(c);
                 }
+            } else if c == b'-' {
+                if self.buf.is_empty() {
+                    self.buf.push(c);
+                } else {
+                    return Some(Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("invalid number in input: \"{}{}\"",
+                            String::from_utf8_lossy(&self.buf), c as char))));
+                }
+            } else if c >= b'0' && c <= b'9' {
+                self.buf.push(c);
+            } else {
+                return Some(Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("invalid character in input: {:?}", c as char))));
             }
         }
     }
@@ -153,7 +143,7 @@ fn action(dc: &mut DC4, action: Action, w: &mut impl Write)
     }
 }
 
-fn run(r: impl BufRead, mut w: impl Write) -> Result<(), Result<dc4::DCResult, dc4::DCError>> {
+fn run(r: impl Read, mut w: impl Write) -> Result<(), Result<dc4::DCResult, dc4::DCError>> {
     let mut dc = DC4::new("sum-numbers".to_owned());
 
     let opts = Options::parse(std::env::args())
@@ -172,7 +162,7 @@ fn run(r: impl BufRead, mut w: impl Write) -> Result<(), Result<dc4::DCResult, d
     }
 
     // initial value
-    dc.push_number(b"0");
+    dc.push_number("0");
 
     for result in Input::new(r) {
         match result {

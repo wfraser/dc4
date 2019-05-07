@@ -131,9 +131,9 @@ impl DC4 {
 
     // Convenience function for pushing a number onto the stack. Negative sign must be given as an
     // underscore ('_') character. Panics if the given string is not a valid number.
-    pub fn push_number(&mut self, input: &[u8]) {
+    pub fn push_number(&mut self, input: impl AsRef<[u8]>) {
         let mut num = Number::default();
-        for c in input {
+        for c in input.as_ref() {
             num.push(*c, self.iradix);
         }
         self.stack.push(num.finish(self.iradix));
