@@ -16,7 +16,7 @@ impl Default for Parser {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Action {
     // Where possible, keep things ordered like in the GNU dc man page.
 
@@ -86,7 +86,7 @@ pub enum Action {
     InputError(String),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum RegisterAction {
     Store,              // 's'
     Load,               // 'l'
@@ -118,6 +118,27 @@ impl Parser {
         let (new_state, result) = self.state.take().unwrap().next(input);
         self.state = Some(new_state);
         result
+    }
+
+    pub fn parse(&mut self, mut input: impl Iterator<Item=u8>) -> Vec<Action> {
+        let mut actions = vec![];
+        let mut c = input.next();
+        loop {
+            match self.step(&mut c) {
+                Some(Action::Eof) => {
+                    actions.push(Action::Eof);
+                    break;
+                }
+                Some(action) => {
+                    actions.push(action);
+                }
+                None => ()
+            }
+            if c.is_none() {
+                c = input.next();
+            }
+        }
+        actions
     }
 }
 

@@ -6,14 +6,15 @@
 
 use std::fmt;
 use std::io::{self, BufRead, Write};
+use std::rc::Rc;
 use num::BigInt;
 use num::traits::{ToPrimitive, Zero};
 
 use crate::big_real::BigReal;
 use crate::dcregisters::DCRegisters;
-use crate::parser::{Action, RegisterAction, Parser};
+use crate::parser::{Action, RegisterAction};
 use crate::reader_parser::ReaderParser;
-use crate::{DCValue, DCResult, DCError};
+use crate::{DCValue, DCString, DCResult, DCError};
 
 pub struct DC4 {
     program_name: String,
@@ -60,22 +61,12 @@ impl DC4 {
         DCResult::Continue
     }
 
-    pub fn run_macro(&mut self, mut text: Vec<u8>, w: &mut impl Write) -> Result<DCResult, DCError> {
-        let mut parser = Parser::default();
+    pub fn run_macro(&mut self, mut text: Rc<Vec<Action>>, w: &mut impl Write) -> Result<DCResult, DCError> {
         let mut tail_recursion_depth = 0;
         let mut pos = 0;
-        let mut cur = None;
-        let mut advance = 0;
         loop {
-            if cur.is_none() {
-                cur = (&text[pos..]).first().cloned();
-                advance = if cur.is_some() { 1 } else { 0 };
-            }
-
-            let action = parser.step(&mut cur);
-            if cur.is_none() {
-                pos += advance;
-            }
+            let action = text.get(pos).cloned();
+            pos += 1;
 
             match action {
                 None => (),
@@ -84,13 +75,11 @@ impl DC4 {
                     let mut result = self.action(action, w);
 
                     while let Ok(DCResult::Macro(new_text)) = result {
-                        if pos == text.len() {
+                        if let Some(Action::Eof) = text.get(pos) {
                             // tail recursion! :D
                             // replace the current text with the new text and start over
                             text = new_text;
                             pos = 0;
-                            cur = None;
-                            advance = 0;
                             tail_recursion_depth += 1;
                             result = Ok(DCResult::Continue);
                         } else {
@@ -141,7 +130,7 @@ impl DC4 {
 
     // Convenience function for pushing a string directly onto the stack.
     pub fn push_string(&mut self, string: impl Into<Vec<u8>>) {
-        self.stack.push(DCValue::Str(string.into()));
+        self.stack.push(DCValue::Str(DCString::new(string.into())));
     }
 
     // Perform the given action.
@@ -160,7 +149,7 @@ impl DC4 {
                 self.current_str.push(c);
             }
             Action::PushString => {
-                self.stack.push(DCValue::Str(self.current_str.split_off(0)));
+                self.stack.push(DCValue::Str(DCString::new(self.current_str.split_off(0))));
             }
             Action::Register(action, register) => match action {
                 RegisterAction::Store => {
@@ -237,7 +226,7 @@ impl DC4 {
             }
             Action::PrintBytesPop => {
                 match self.pop_top()? {
-                    DCValue::Str(s) => { w.write_all(&s).unwrap(); }
+                    DCValue::Str(s) => { w.write_all(&s.into_bytes()).unwrap(); }
                     DCValue::Num(n) => {
                         let (_sign, bytes) = n.to_int().to_bytes_be();
                         w.write_all(&bytes).unwrap();
@@ -449,17 +438,19 @@ impl DC4 {
             Action::LoadOutputRadix => self.stack.push(DCValue::Num(BigReal::from(self.oradix))),
             Action::LoadPrecision => self.stack.push(DCValue::Num(BigReal::from(self.scale))),
             Action::Asciify => match self.pop_top()? {
-                DCValue::Str(mut s) => {
-                    s.truncate(1);
-                    self.stack.push(DCValue::Str(s));
+                DCValue::Str(s) => {
+                    let mut bytes = s.into_bytes();
+                    bytes.truncate(1);
+                    self.stack.push(DCValue::Str(DCString::new(bytes)));
                 }
                 DCValue::Num(n) => {
                     let (_sign, bytes) = n.to_int().to_bytes_le();
-                    self.stack.push(DCValue::Str(format!("{}", bytes[0] as char).into_bytes()));
+                    self.stack.push(
+                        DCValue::Str(DCString::new(format!("{}", bytes[0] as char).into_bytes())));
                 }
             }
             Action::ExecuteMacro => match self.pop_top()? {
-                DCValue::Str(text) => return Ok(DCResult::Macro(text)),
+                DCValue::Str(text) => return Ok(DCResult::Macro(text.actions())),
                 other => self.stack.push(other),
             }
             Action::Input => {
@@ -469,7 +460,7 @@ impl DC4 {
                 if let Err(e) = handle.read_until(b'\n', &mut line) {
                     writeln!(w, "warning: error reading input: {}", e).unwrap();
                 }
-                return Ok(DCResult::Macro(line));
+                return Ok(DCResult::Macro(DCString::new(line).actions()));
             }
             Action::Quit => return Ok(DCResult::Terminate(2)),
             Action::QuitLevels => match self.pop_top()? {
@@ -483,7 +474,7 @@ impl DC4 {
             }
             Action::NumDigits => match self.pop_top()? {
                 DCValue::Num(n) => self.stack.push(DCValue::Num(BigReal::from(n.num_digits()))),
-                DCValue::Str(s) => self.stack.push(DCValue::Num(BigReal::from(s.len()))),
+                DCValue::Str(s) => self.stack.push(DCValue::Num(BigReal::from(s.into_bytes().len()))),
             }
             Action::NumFrxDigits => match self.pop_top()? {
                 DCValue::Num(n) => self.stack.push(DCValue::Num(BigReal::from(n.num_frx_digits()))),
@@ -501,7 +492,7 @@ impl DC4 {
                         | env!("CARGO_PKG_VERSION_MINOR").parse::<u64>().unwrap() << 16
                         | env!("CARGO_PKG_VERSION_PATCH").parse::<u64>().unwrap();
                 self.stack.push(DCValue::Num(BigReal::from(ver)));
-                self.stack.push(DCValue::Str("dc4".to_owned().into_bytes()));
+                self.stack.push(DCValue::Str(DCString::new("dc4".to_owned().into_bytes())));
             }
             Action::Eof => (), // nothing to do
             Action::Unimplemented(c) => {
@@ -523,7 +514,7 @@ impl DC4 {
             } else {
                 write!(w, "{}", n.to_str_radix(self.oradix).to_uppercase())
             }
-            DCValue::Str(ref s) => w.write_all(&s),
+            DCValue::Str(ref s) => w.write_all(s.as_bytes()),
         }.unwrap();
     }
 
@@ -582,7 +573,7 @@ impl DC4 {
     {
         if self.binary_lambda(|a, b| Ok(f(a, b)))? {
             let text = match self.registers.get(register).value() {
-                Some(DCValue::Str(s)) => s.to_owned(),
+                Some(DCValue::Str(s)) => s.actions(),
                 Some(DCValue::Num(_)) => return Ok(DCResult::Continue),
                 None => return Err(
                     format!("register '{}' (0{:o}) is empty", register as char, register).into()),
