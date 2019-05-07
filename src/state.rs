@@ -69,7 +69,6 @@ impl DC4 {
         loop {
             if cur.is_none() {
                 cur = (&text[pos..]).first().cloned();
-                //advance = cur.map(|c| c.len_utf8()).unwrap_or(0);
                 advance = if cur.is_some() { 1 } else { 0 };
             }
 
@@ -161,7 +160,6 @@ impl DC4 {
                 self.current_str.push(c);
             }
             Action::PushString => {
-                //self.stack.push(DCValue::Str(std::mem::replace(&mut self.current_str, vec![])));
                 self.stack.push(DCValue::Str(self.current_str.split_off(0)));
             }
             Action::Register(action, register) => match action {
@@ -174,7 +172,7 @@ impl DC4 {
                         Some(value) => self.stack.push(value.clone()),
                         None => return Err(
                             format!("register '{}' (0{:o}) is empty",
-                                register as char, register as u32).into()),
+                                register as char, register).into()),
                     }
                 }
                 RegisterAction::PushRegStack => {
@@ -186,7 +184,7 @@ impl DC4 {
                         Some(value) => self.stack.push(value),
                         None => return Err(
                             format!("stack register '{}' (0{:o}) is empty",
-                                register as char, register as u32).into()),
+                                register as char, register).into()),
                     }
                 }
                 RegisterAction::Gt => return Ok(self.cond_macro(register, |a,b| b>a)?),
@@ -507,7 +505,7 @@ impl DC4 {
             }
             Action::Eof => (), // nothing to do
             Action::Unimplemented(c) => {
-                return Err(format!("{:?} (0{:o}) unimplemented", c as char, c as u32).into());
+                return Err(format!("{:?} (0{:o}) unimplemented", c as char, c).into());
             }
             Action::InputError(msg) => {
                 return Err(msg.into());
@@ -587,7 +585,7 @@ impl DC4 {
                 Some(DCValue::Str(s)) => s.to_owned(),
                 Some(DCValue::Num(_)) => return Ok(DCResult::Continue),
                 None => return Err(
-                    format!("register '{}' (0{:o}) is empty", register as char, register as u32).into()),
+                    format!("register '{}' (0{:o}) is empty", register as char, register).into()),
             };
             Ok(DCResult::Macro(text))
         } else {

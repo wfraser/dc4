@@ -114,18 +114,6 @@ enum ParseState {
 }
 
 impl Parser {
-    pub fn next(&mut self, mut input: impl Iterator<Item=u8>) -> Action {
-        let mut c = input.next();
-        loop {
-            if let Some(action) = self.step(&mut c) {
-                return action;
-            }
-            if c.is_none() {
-                c = input.next();
-            }
-        }
-    }
-
     pub fn step(&mut self, input: &mut Option<u8>) -> Option<Action> {
         let (new_state, result) = self.state.take().unwrap().next(input);
         self.state = Some(new_state);
@@ -146,8 +134,8 @@ impl ParseState {
                 let action: Action = match self {
                     ParseState::Start => Action::Eof,
                     ParseState::Comment => Action::Eof,
-                    ParseState::Number { decimal: _ } => Action::PushNumber,
-                    ParseState::String { level: _ } =>
+                    ParseState::Number { .. } => Action::PushNumber,
+                    ParseState::String { .. } =>
                         // Note: we push the string even if it is incomplete (unbalanced brackets).
                         Action::PushString,
                     ParseState::ShellExec => Action::ShellExec,
