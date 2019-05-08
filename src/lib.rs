@@ -25,14 +25,14 @@ pub enum DCValue {
 
 #[derive(Clone, Debug)]
 pub struct DCString {
-    bytes: Vec<u8>,
+    bytes: Rc<Vec<u8>>,
     actions: Rc<RefCell<Option<Rc<Vec<parser::Action>>>>>, // lol
 }
 
 impl DCString {
     pub fn new(bytes: Vec<u8>) -> Self {
         Self {
-            bytes,
+            bytes: Rc::new(bytes),
             actions: Rc::new(RefCell::new(None)),
         }
     }
@@ -50,7 +50,8 @@ impl DCString {
     }
 
     pub fn into_bytes(self) -> Vec<u8> {
-        self.bytes
+        Rc::try_unwrap(self.bytes)
+            .unwrap_or_else(|rc| (&*rc).to_owned())
     }
 }
 
