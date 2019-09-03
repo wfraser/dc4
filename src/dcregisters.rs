@@ -7,8 +7,8 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use num::traits::Zero;
-use super::big_real::BigReal;
-use super::DCValue;
+use crate::big_real::BigReal;
+use crate::DCValue;
 
 const MAX_REGISTER: usize = 255;
 

@@ -157,7 +157,7 @@ impl ParseState {
                 b' ' | b'\t' | b'\r' | b'\n' =>
                     (self, None),
 
-                b'_' | b'0' ... b'9' | b'A' ... b'F' | b'.' =>
+                b'_' | b'0' ..= b'9' | b'A' ..= b'F' | b'.' =>
                     (ParseState::Number { decimal: c == b'.' }, Some(Action::NumberChar(c))),
 
                 b'p' => (self, Some(Action::Print)),
@@ -221,7 +221,7 @@ impl ParseState {
                 _ => (self, None),
             }
             ParseState::Number { decimal } => match c {
-                b'0' ... b'9' | b'A' ... b'F' => {
+                b'0' ..= b'9' | b'A' ..= b'F' => {
                     (ParseState::Number { decimal }, Some(Action::NumberChar(c)))
                 }
                 b'.' if !decimal => {

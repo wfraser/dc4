@@ -9,11 +9,11 @@ use std::io::{self, BufRead, Write};
 use num::BigInt;
 use num::traits::{ToPrimitive, Zero};
 
-use big_real::BigReal;
-use dcregisters::DCRegisters;
-use parser::{Action, RegisterAction, Parser};
-use reader_parser::ReaderParser;
-use ::{DCValue, DCResult, DCError};
+use crate::big_real::BigReal;
+use crate::dcregisters::DCRegisters;
+use crate::parser::{Action, RegisterAction, Parser};
+use crate::reader_parser::ReaderParser;
+use crate::{DCValue, DCResult, DCError};
 
 pub struct DC4 {
     program_name: String,
@@ -610,7 +610,7 @@ impl Number {
     pub fn push(&mut self, c: u8, iradix: u32) {
         match c {
             b'_' => { self.neg = true; }
-            b'0' ... b'9' | b'A' ... b'F' => {
+            b'0' ..= b'9' | b'A' ..= b'F' => {
                 self.int *= iradix;
                 self.int += (c as char).to_digit(16).unwrap();
                 if let Some(shift) = self.shift.as_mut() {

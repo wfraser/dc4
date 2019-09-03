@@ -1,5 +1,5 @@
 use std::io::{Read, Bytes};
-use parser::{Parser, Action};
+use crate::parser::{Parser, Action};
 
 pub struct ReaderParser<R: Read> {
     inner: Option<Bytes<R>>,
