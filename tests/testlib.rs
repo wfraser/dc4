@@ -1,10 +1,10 @@
 //
 // dc4 test suite
 //
-// Copyright (c) 2015-2017 by William R. Fraser
+// Copyright (c) 2015-2020 by William R. Fraser
 //
 
-extern crate dc4;
+#![deny(rust_2018_idioms)]
 
 use std::io::Cursor;
 

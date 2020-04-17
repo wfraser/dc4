@@ -1,7 +1,7 @@
 //
 // dc4 main program state
 //
-// Copyright (c) 2015-2019 by William R. Fraser
+// Copyright (c) 2015-2020 by William R. Fraser
 //
 
 use std::fmt;
@@ -153,7 +153,7 @@ impl DC4 {
                 self.current_num.push(c, self.iradix);
             }
             Action::PushNumber => {
-                let to_push = std::mem::replace(&mut self.current_num, Number::default());
+                let to_push = std::mem::take(&mut self.current_num);
                 self.stack.push(to_push.finish(self.iradix));
             }
             Action::StringChar(c) => {
@@ -593,7 +593,7 @@ impl DC4 {
         }
     }
 
-    fn error(&self, w: &mut impl Write, args: fmt::Arguments) {
+    fn error(&self, w: &mut impl Write, args: fmt::Arguments<'_>) {
         writeln!(w, "{}: {}", self.program_name, fmt::format(args)).unwrap();
     }
 }

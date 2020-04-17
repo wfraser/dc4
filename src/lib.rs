@@ -1,10 +1,10 @@
 //
 // dc4 :: A Unix dc(1) implementation in Rust
 //
-// Copyright (c) 2015-2019 by William R. Fraser
+// Copyright (c) 2015-2020 by William R. Fraser
 //
 
-extern crate num;
+#![deny(rust_2018_idioms)]
 
 mod big_real;
 mod dcregisters;
@@ -35,7 +35,7 @@ pub enum DCError {
 }
 
 impl std::fmt::Display for DCError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg = match *self {
             DCError::Message(ref msg) => msg,
             DCError::StaticMessage(msg) => msg,

@@ -1,14 +1,13 @@
 //
 // BigReal :: An arbitrary-precision real number class.
 //
-// Copyright (c) 2016-2019 by William R. Fraser
+// Copyright (c) 2016-2020 by William R. Fraser
 //
 
 use std::cmp::{max, Ordering};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, Sub, Mul, Neg, Shr};
 
-extern crate num;
 use num::BigInt;
 use num::integer::Integer;
 use num::traits::{Zero, One, Signed, ToPrimitive, FromPrimitive};

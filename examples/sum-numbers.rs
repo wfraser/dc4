@@ -1,15 +1,16 @@
 //
 // sum-numbers :: Accumulate and sum whitespace-delimited numbers from input.
 //
-// Copyright (c) 2019 by William R. Fraser
+// Copyright (c) 2019-2020 by William R. Fraser
 //
+
+#![deny(rust_2018_idioms)]
 
 /// This is an example of how DC4 can be used as a library for doing useful numeric operations.
 /// The program reads numbers from input, delimited by whitespace, and uses DC4 to add them up as
 /// it reads them. When it reaches EOF, it prints the resulting sum. Because it uses DC4, it
 /// supports arbitrary precision.
 
-extern crate dc4;
 use dc4::DC4;
 use dc4::parser::Action;
 use std::io::{self, Bytes, Read, Write};

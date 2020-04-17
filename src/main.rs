@@ -4,10 +4,10 @@
 // This is the program entry point.
 // It parses command line arguments and invokes the dc4 library.
 //
-// Copyright (c) 2015-2018 by William R. Fraser
+// Copyright (c) 2015-2020 by William R. Fraser
 //
 
-extern crate dc4;
+#![deny(rust_2018_idioms)]
 
 use std::env;
 use std::fs::File;
@@ -150,7 +150,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let args_references: Vec<&str> = args.iter().map(|owned| &owned[..]).collect();
 
-    let inputs: Vec<DCInput> = match parse_arguments(&args_references) {
+    let inputs: Vec<DCInput<'_>> = match parse_arguments(&args_references) {
         Some(x) => x,
         None => return,
     };
