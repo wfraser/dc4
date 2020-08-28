@@ -1,7 +1,7 @@
 //
 // dc4 input parser
 //
-// Copyright (c) 2019 by William R. Fraser
+// Copyright (c) 2019-2020 by William R. Fraser
 //
 
 pub struct Parser {
@@ -126,28 +126,25 @@ impl ParseState {
     /// If `input` is None after this call, it means the character was consumed. If not, it should
     /// be re-issued again.
     pub fn next(self, input: &mut Option<u8>) -> (Self, Option<Action>) {
-        let c = match input.take() {
-            Some(c) => c,
-            None => {
-                // We are at EOF. We need to complete whatever we're in the middle of, or return
-                // Action::Eof to positively indicate that we're done.
-                let action: Action = match self {
-                    ParseState::Start => Action::Eof,
-                    ParseState::Comment => Action::Eof,
-                    ParseState::Number { .. } => Action::PushNumber,
-                    ParseState::String { .. } =>
-                        // Note: we push the string even if it is incomplete (unbalanced brackets).
-                        Action::PushString,
-                    ParseState::ShellExec => Action::ShellExec,
-                    ParseState::Bang =>
-                        // GNU dc interprets this as an empty shell command and tries to run it
-                        // This is pointless, so let's just ignore it.
-                        Action::Eof,
-                    ParseState::TwoChar(_register_action) =>
-                        Action::InputError("unexpected end of input".into())
-                };
-                return (ParseState::Start, Some(action))
-            }
+        let c = if let Some(c) = input.take() { c } else {
+            // We are at EOF. We need to complete whatever we're in the middle of, or return
+            // Action::Eof to positively indicate that we're done.
+            let action: Action = match self {
+                ParseState::Start
+                    | ParseState::Comment
+                    | ParseState::Bang  // GNU dc interprets this as an empty shell command and
+                                        // tries to execute it. This is pointless, so let's just
+                                        // ignore it.
+                    => Action::Eof,
+                ParseState::Number { .. } => Action::PushNumber,
+                ParseState::String { .. } =>
+                    // Note: we push the string even if it is incomplete (unbalanced brackets).
+                    Action::PushString,
+                ParseState::ShellExec => Action::ShellExec,
+                ParseState::TwoChar(_register_action) =>
+                    Action::InputError("unexpected end of input".into())
+            };
+            return (ParseState::Start, Some(action));
         };
 
         match self {

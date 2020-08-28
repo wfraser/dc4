@@ -47,8 +47,9 @@ impl DC4 {
                 result = self.run_macro(text, w);
             }
             match result {
-                Ok(DCResult::Continue) => (), // next loop iteration
-                Ok(DCResult::QuitLevels(_)) => (), // 'Q' mustn't exit the top level
+                Ok(DCResult::Continue)  // next loop iteration
+                    | Ok(DCResult::QuitLevels(_))   // 'Q' mustn't exit the top level
+                    => (),
                 Err(msg) => {
                     self.error(w, format_args!("{}", msg));
                 }
@@ -202,7 +203,7 @@ impl DC4 {
                                 Some(n)
                             }
                         }
-                        _ => None,
+                        DCValue::Str(_) => None,
                     };
                     let value = self.pop_top()?;
                     match maybe_key {
@@ -315,7 +316,7 @@ impl DC4 {
                                     return Err("remainder by zero".into());
                                 }
                             },
-                            _ => return Err("non-numeric value".into())
+                            DCValue::Str(_) => return Err("non-numeric value".into())
                         }
                     }
                 } else {
@@ -324,7 +325,7 @@ impl DC4 {
 
                 let unwrap_int = |value| match value {
                     DCValue::Num(n) => n,
-                    _ => unreachable!(), // already checked above
+                    DCValue::Str(_) => unreachable!(), // already checked above
                 };
                 let modulus = self.stack.pop().map(unwrap_int).unwrap();
                 let exponent = self.stack.pop().map(unwrap_int).unwrap();
@@ -460,7 +461,7 @@ impl DC4 {
             }
             Action::ExecuteMacro => match self.pop_top()? {
                 DCValue::Str(text) => return Ok(DCResult::Macro(text)),
-                other => self.stack.push(other),
+                num @ DCValue::Num(_) => self.stack.push(num),
             }
             Action::Input => {
                 let mut line = vec![];
@@ -478,8 +479,8 @@ impl DC4 {
                         .map(DCResult::QuitLevels)
                         .ok_or_else(|| "quit levels out of range (must fit into 32 bits)".into());
                 }
-                DCValue::Num(_) => return Err("Q command requires a number >= 1".into()),
-                _ => return Err("Q command requires a number >= 1".into()),
+                DCValue::Num(_) | DCValue::Str(_) =>
+                    return Err("Q command requires a number >= 1".into()),
             }
             Action::NumDigits => match self.pop_top()? {
                 DCValue::Num(n) => self.stack.push(DCValue::Num(BigReal::from(n.num_digits()))),

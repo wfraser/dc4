@@ -268,7 +268,7 @@ impl BigReal {
         BigReal::new(self.value.abs(), self.shift)
     }
 
-    /// Return the number as a BigInt, with the fractional part truncated off.
+    /// Return the number as a `BigInt`, with the fractional part truncated off.
     pub fn to_int(&self) -> BigInt {
         let mut shifted = self.change_shift(0);
         shifted.simplify();
@@ -579,10 +579,10 @@ fn test_rem1() {
 
 #[test]
 fn test_rem2() {
-    let a = BigReal::new(1654043318, 6);        // 1654.043318
+    let a = BigReal::new(1_654_043_318, 6);     // 1654.043318
     let b = BigReal::new(12, 0);                //   12.
     let c = a.rem(&b, 0);
-    assert_eq!(c, BigReal::new(10043318, 6));   //   10.043318
+    assert_eq!(c, BigReal::new(10_043_318, 6)); //   10.043318
 }
 
 #[test]
