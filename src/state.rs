@@ -289,7 +289,7 @@ impl DC4 {
                 self.stack.push(DCValue::Num(n1));
                 self.stack.push(DCValue::Num(n2));
             }
-            Action::Exp => {
+            Action::Pow => {
                 let mut warn = false;
                 let scale = self.scale;
                 self.binary_operator(|base, exponent| {
@@ -304,6 +304,19 @@ impl DC4 {
                     // note: GNU dc doesn't emit any warning here.
                     self.error(w, format_args!("warning: non-zero scale in exponent"));
                 }
+            }
+            Action::PowReal => {
+                let scale = self.scale;
+                self.binary_operator(|base, exponent| {
+                    Ok(base.pow_real(exponent, scale))
+                })?;
+            }
+            Action::Exp => {
+                let x = match self.pop_top()? {
+                    DCValue::Str(_) => return Err("non-numeric value".into()),
+                    DCValue::Num(n) => n,
+                };
+                self.stack.push(DCValue::Num(x.exp(self.scale)));
             }
             Action::ModExp => {
                 if self.stack.len() >= 3 {

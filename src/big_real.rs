@@ -136,6 +136,7 @@ impl BigReal {
         }
     }
 
+    /// self^exponent, for integer exponents only
     pub fn pow(&self, exponent: &BigReal, scale: u32) -> BigReal {
         let negative = exponent.is_negative();
 
@@ -168,6 +169,58 @@ impl BigReal {
         } else {
             result
         }
+    }
+
+    /// e^self
+    pub fn exp(&self, scale: u32) -> BigReal {
+        // e^z  = \sum_{n=0}^{\inf} \frac{z^n}{n!}
+        //      = 1 + z + z^2 / 2! + z^3 / 3! + ...
+
+        let mut value = BigReal::zero();
+        let mut top   = BigReal::one();
+        let mut fact  = BigReal::one();
+        let mut iter  = BigReal::zero();
+
+        loop {
+            let part = if iter.is_zero() {
+                // Special case for first iteration which has a denominator of factorial of zero.
+                BigReal::one()
+            } else {
+                // Experimentally determined that 2 extra decimal places gives correct results.
+                top.div(&fact, scale + 2)
+            };
+
+            if part.is_zero() {
+                break; // Enough iterations.
+            }
+
+            value = value.add(part);
+            iter = iter.add(BigReal::one());
+
+            top = top.mul(self);
+            if !iter.is_zero() {
+                fact = fact.mul(&iter);
+            }
+        }
+
+        // Remove the extra digits of precision.
+        value.change_shift(scale)
+    }
+
+    /// self^exponent, defined for real number exponents.
+    pub fn pow_real(&self, exponent: &BigReal, scale: u32) -> BigReal {
+        // b^x == e^(x * ln(b))
+        (exponent * self.ln(scale)).exp(scale)
+    }
+
+    /// Natural logarithm
+    pub fn ln(&self, _scale: u32) -> BigReal {
+        // TODO
+        // Probably approximate using Taylor series:
+        //                         x - exp(val(n))
+        // val(n+1) = val(n) + 2 * ---------------
+        //                         x + exp(val(n))
+        unimplemented!();
     }
 
     pub fn sqrt(&self, scale: u32) -> Option<BigReal> {

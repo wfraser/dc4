@@ -41,7 +41,9 @@ pub enum Action {
     Div,                // '/'
     Rem,                // '%'
     DivRem,             // '~'
-    Exp,                // '^'
+    Pow,                // '^'
+    PowReal,            // '!^' (dc4 extension)
+    Exp,                // '!e' (dc4 extension)
     ModExp,             // '|'
     Sqrt,               // 'v'
 
@@ -168,7 +170,7 @@ impl ParseState {
                 b'/' => (self, Some(Action::Div)),
                 b'%' => (self, Some(Action::Rem)),
                 b'~' => (self, Some(Action::DivRem)),
-                b'^' => (self, Some(Action::Exp)),
+                b'^' => (self, Some(Action::Pow)),
                 b'|' => (self, Some(Action::ModExp)),
                 b'v' => (self, Some(Action::Sqrt)),
 
@@ -254,6 +256,8 @@ impl ParseState {
                 b'>' => (ParseState::TwoChar(RegisterAction::Le), None),
                 b'<' => (ParseState::TwoChar(RegisterAction::Ge), None),
                 b'=' => (ParseState::TwoChar(RegisterAction::Ne), None),
+                b'^' => (ParseState::Start, Some(Action::PowReal)),
+                b'e' => (ParseState::Start, Some(Action::Exp)),
                 _ => (ParseState::ShellExec, None),
             }
             ParseState::TwoChar(action) => (ParseState::Start, Some(Action::Register(action, c))),
