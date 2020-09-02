@@ -214,13 +214,27 @@ impl BigReal {
     }
 
     /// Natural logarithm
-    pub fn ln(&self, _scale: u32) -> BigReal {
-        // TODO
-        // Probably approximate using Taylor series:
+    pub fn ln(&self, scale: u32) -> BigReal {
+        // Approximate using Newton's method:
         //                         x - exp(val(n))
         // val(n+1) = val(n) + 2 * ---------------
         //                         x + exp(val(n))
-        unimplemented!();
+
+        let s = scale + 2; // Extra precision for temporary calculations.
+        let mut val = BigReal::zero();
+        loop {
+            let val_exp = val.exp(s);
+            let next = (self - &val_exp)
+                .div(&(self + &val_exp), s);
+
+            if next.is_zero() {
+                break;
+            }
+
+            val = val + BigReal::from(2) * next;
+        }
+
+        val.change_shift(scale)
     }
 
     pub fn sqrt(&self, scale: u32) -> Option<BigReal> {

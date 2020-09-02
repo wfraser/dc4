@@ -312,11 +312,12 @@ impl DC4 {
                 })?;
             }
             Action::Exp => {
-                let x = match self.pop_top()? {
-                    DCValue::Str(_) => return Err("non-numeric value".into()),
-                    DCValue::Num(n) => n,
-                };
-                self.stack.push(DCValue::Num(x.exp(self.scale)));
+                let scale = self.scale;
+                self.unary_operator(|x| Ok(x.exp(scale)))?;
+            }
+            Action::Ln => {
+                let scale = self.scale;
+                self.unary_operator(|x| Ok(x.ln(scale)))?;
             }
             Action::ModExp => {
                 if self.stack.len() >= 3 {
@@ -588,6 +589,26 @@ impl DC4 {
     {
         let n = self.binary_lambda(|a, b| f(a, b))?;
         self.stack.push(DCValue::Num(n));
+        Ok(())
+    }
+
+    fn unary_operator<F>(&mut self, mut f: F) -> Result<(), DCError>
+        where F: FnMut(&BigReal) -> Result<BigReal, DCError>
+    {
+        if self.stack.is_empty() {
+            return Err("stack empty".into());
+        }
+
+        let x = match self.stack[self.stack.len() - 1] {
+            DCValue::Num(ref n) => n,
+            DCValue::Str(_) => return Err("non-numeric value".into()),
+        };
+
+        let r = f(x)?;
+
+        self.stack.pop();
+        self.stack.push(DCValue::Num(r));
+
         Ok(())
     }
 

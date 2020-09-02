@@ -44,6 +44,7 @@ pub enum Action {
     Pow,                // '^'
     PowReal,            // '!^' (dc4 extension)
     Exp,                // '!e' (dc4 extension)
+    Ln,                 // '!l' (dc4 extension)
     ModExp,             // '|'
     Sqrt,               // 'v'
 
@@ -258,6 +259,7 @@ impl ParseState {
                 b'=' => (ParseState::TwoChar(RegisterAction::Ne), None),
                 b'^' => (ParseState::Start, Some(Action::PowReal)),
                 b'e' => (ParseState::Start, Some(Action::Exp)),
+                b'l' => (ParseState::Start, Some(Action::Ln)),
                 _ => (ParseState::ShellExec, None),
             }
             ParseState::TwoChar(action) => (ParseState::Start, Some(Action::Register(action, c))),
