@@ -210,7 +210,23 @@ impl BigReal {
     /// self^exponent, defined for real number exponents.
     pub fn pow_real(&self, exponent: &BigReal, scale: u32) -> BigReal {
         // b^x == e^(x * ln(b))
-        (exponent * self.ln(scale)).exp(scale)
+
+        // Naively this would be:
+        //(exponent * self.ln(scale)).exp(scale)
+
+        // But it works better if we separate the exponent into whole and fractional parts, and
+        // compute the power of the whole part the simple way.
+        // b^x = b^whole * e^(part * ln(b))
+
+        let exp_whole = BigReal::from(exponent.to_int());
+        let exp_part = exponent - &exp_whole;
+        let whole_pow = self.pow(&exp_whole, scale);
+
+        if exp_part.is_zero() {
+            whole_pow
+        } else {
+            whole_pow * (exp_part * self.ln(scale)).exp(scale)
+        }
     }
 
     /// Natural logarithm
