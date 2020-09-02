@@ -319,6 +319,13 @@ impl DC4 {
                 let scale = self.scale;
                 self.unary_operator(|x| Ok(x.ln(scale)))?;
             }
+            Action::LogN => {
+                let scale = self.scale;
+                self.binary_operator(|value, base| {
+                    Ok(value.ln(scale + 1)
+                        .div(&base.ln(scale + 1), scale))
+                })?;
+            }
             Action::ModExp => {
                 if self.stack.len() >= 3 {
                     for (i, value) in self.stack[self.stack.len() - 3..].iter().enumerate() {
