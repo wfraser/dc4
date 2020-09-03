@@ -137,17 +137,16 @@ impl BigReal {
     }
 
     pub fn pow(&self, exponent: &BigReal, scale: u32) -> BigReal {
-        let mut negative = false;
-        if exponent.is_zero() {
-            return BigReal::one();
-        } else if exponent.is_negative() {
-            negative = true;
-        }
+        let negative = exponent.is_negative();
 
         // Ignore the fractional part of the exponent.
         let mut exponent: BigInt = exponent.change_shift(0).value.abs();
-        let one = BigInt::one();
 
+        if exponent.is_zero() {
+            return BigReal::one();
+        }
+
+        let one = BigInt::one();
         let mut base = self.clone();
 
         while exponent.is_even() {
@@ -609,4 +608,12 @@ fn test_simplify() {
     assert!(a == b);
     assert_eq!(b.shift, 1);
     assert_eq!(b.value.to_str_radix(10), "11");
+}
+
+#[test]
+fn test_pow_frac() {
+    let base = BigReal::new(2, 0); // 2
+    let exp  = BigReal::new(5, 1); // 0.5
+    let x = base.pow(&exp, 2);
+    assert_eq!(x.to_str_radix(10), "1");
 }
