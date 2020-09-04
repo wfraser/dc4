@@ -8,7 +8,9 @@ build = "build.rs"
 edition = "2018"
 
 [dependencies]
-num = "0.3"
+num-bigint = "0.3"
+num-integer = "0.1"
+num-traits = "0.2"
 
 [target.'cfg(target_env = "msvc")'.build-dependencies]
 winres = "0.1"

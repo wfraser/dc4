@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 use std::rc::Rc;
-use num::traits::Zero;
+use num_traits::Zero;
 use crate::big_real::BigReal;
 use crate::DCValue;
 

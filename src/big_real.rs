@@ -8,9 +8,9 @@ use std::cmp::{max, Ordering};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, Sub, Mul, Neg, Shr};
 
-use num::BigInt;
-use num::integer::Integer;
-use num::traits::{Zero, One, Signed, ToPrimitive, FromPrimitive};
+use num_bigint::BigInt;
+use num_integer::Integer;
+use num_traits::{Zero, One, Signed, ToPrimitive, FromPrimitive};
 
 #[derive(Clone, Debug)]
 pub struct BigReal {
@@ -252,7 +252,7 @@ impl BigReal {
         (div, rem)
     }
 
-    // These are in num::traits::Signed, but that requires num::traits::Num, which we don't want to
+    // These are in num_traits::Signed, but that requires num_traits::Num, which we don't want to
     // implement fully, because it requires Div and Rem (which we can't implement because those
     // methods need an extra "scale" argument here).
     pub fn is_positive(&self) -> bool {

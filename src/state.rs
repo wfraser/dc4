@@ -6,8 +6,8 @@
 
 use std::fmt;
 use std::io::{self, BufRead, Write};
-use num::BigInt;
-use num::traits::{ToPrimitive, Zero};
+use num_bigint::BigInt;
+use num_traits::{ToPrimitive, Zero};
 
 use crate::big_real::BigReal;
 use crate::dcregisters::DCRegisters;
