@@ -511,6 +511,7 @@ fn test_eq() {
 }
 
 #[test]
+#[allow(clippy::neg_cmp_op_on_partial_ord)] // checking these ops on purpose
 fn test_cmp() {
     let a = BigReal::new(1, 0); // 1
     let b = BigReal::new(1, 3); // .001

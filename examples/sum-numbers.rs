@@ -74,7 +74,7 @@ impl<R: Read> Iterator for Input<R> {
                         format!("invalid number in input: \"{}{}\"",
                             String::from_utf8_lossy(&self.buf), c as char))));
                 }
-            } else if c >= b'0' && c <= b'9' {
+            } else if (b'0' ..= b'9').contains(&c) {
                 self.buf.push(c);
             } else {
                 return Some(Err(io::Error::new(
@@ -116,7 +116,7 @@ impl Options {
                     .parse()
                     .map_err(|e| format!("invalid argument to {}: {}", &arg[0..2], e))?;
 
-                if n < 2 || n > 16 {
+                if !(2..=16).contains(&n) {
                     return Err(format!("argument to {} must be between 2 and 16 (inclusive)", &arg[0..2]));
                 }
 

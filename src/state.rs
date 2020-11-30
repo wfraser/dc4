@@ -396,7 +396,7 @@ impl DC4 {
             Action::SetInputRadix => match self.pop_top()? {
                 DCValue::Num(n) => {
                     match n.to_u32() {
-                        Some(radix) if radix >= 2 && radix <= 16 => {
+                        Some(radix) if (2..=16).contains(&radix) => {
                             self.iradix = radix;
                         }
                         Some(_) | None => {
@@ -416,7 +416,7 @@ impl DC4 {
                 // starts to use a different format.
                 DCValue::Num(n) => {
                     match n.to_u32() {
-                        Some(radix) if radix >= 2 && radix <= 16 => {
+                        Some(radix) if (2..=16).contains(&radix) => {
                             self.oradix = radix;
                         }
                         Some(_) | None => {
