@@ -131,13 +131,14 @@ impl DC4 {
     }
 
     // Convenience function for pushing a number onto the stack. Negative sign must be given as an
-    // underscore ('_') character. Panics if the given string is not a valid number.
-    pub fn push_number(&mut self, input: impl AsRef<[u8]>) {
+    // underscore ('_') character. Returns Err if the given string is not a valid number.
+    pub fn push_number(&mut self, input: impl AsRef<[u8]>) -> Result<(), DCError> {
         let mut num = Number::default();
         for c in input.as_ref() {
-            num.push(*c, self.iradix);
+            num.push(*c, self.iradix)?;
         }
         self.stack.push(num.finish(self.iradix));
+        Ok(())
     }
 
     // Convenience function for pushing a string directly onto the stack.
@@ -151,7 +152,7 @@ impl DC4 {
     pub fn action(&mut self, action: Action, w: &mut impl Write) -> Result<DCResult, DCError> {
         match action {
             Action::NumberChar(c) => {
-                self.current_num.push(c, self.iradix);
+                self.current_num.push(c, self.iradix).expect("unexpected non-number character");
             }
             Action::PushNumber => {
                 let to_push = std::mem::take(&mut self.current_num);
@@ -608,7 +609,7 @@ struct Number {
 }
 
 impl Number {
-    pub fn push(&mut self, c: u8, iradix: u32) {
+    pub fn push(&mut self, c: u8, iradix: u32) -> Result<(), String> {
         match c {
             b'_' => { self.neg = true; }
             b'0' ..= b'9' | b'A' ..= b'F' => {
@@ -619,8 +620,9 @@ impl Number {
                 }
             }
             b'.' => { self.shift = Some(0); }
-            _ => panic!("unexpected character in number: {:?}", c)
+            _ => return Err(format!("unexpected character in number: {:?}", c as char)),
         }
+        Ok(())
     }
 
     pub fn finish(mut self, iradix: u32) -> DCValue {

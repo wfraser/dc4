@@ -44,14 +44,14 @@ impl std::fmt::Display for DCError {
     }
 }
 
-impl Into<DCError> for String {
-    fn into(self) -> DCError {
-        DCError::Message(self)
+impl From<String> for DCError {
+    fn from(s: String) -> DCError {
+        DCError::Message(s)
     }
 }
 
-impl Into<DCError> for &'static str {
-    fn into(self) -> DCError {
-        DCError::StaticMessage(self)
+impl From<&'static str> for DCError {
+    fn from(s: &'static str) -> DCError {
+        DCError::StaticMessage(s)
     }
 }
