@@ -26,7 +26,7 @@ fn progname() -> String {
 
 fn print_version() {
     println!("dc4 version {}", env!("CARGO_PKG_VERSION"));
-    println!("Copyright (c) 2015-2020 by William R. Fraser");
+    println!("Copyright (c) 2015-2021 by William R. Fraser");
 }
 
 fn print_usage() {
