@@ -47,7 +47,7 @@ impl Dc4State {
         let mut advance = 0;
         loop {
             if cur.is_none() {
-                cur = (&text[pos..]).first().cloned();
+                cur = text.get(pos).cloned();
                 advance = if cur.is_some() { 1 } else { 0 };
             }
 
