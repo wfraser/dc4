@@ -1,14 +1,14 @@
 //
 // sum-numbers :: Accumulate and sum whitespace-delimited numbers from input.
 //
-// Copyright (c) 2019-2020 by William R. Fraser
+// Copyright (c) 2019-2021 by William R. Fraser
 //
 
 #![deny(rust_2018_idioms)]
 
-/// This is an example of how DC4 can be used as a library for doing useful numeric operations.
-/// The program reads numbers from input, delimited by whitespace, and uses DC4 to add them up as
-/// it reads them. When it reaches EOF, it prints the resulting sum. Because it uses DC4, it
+/// This is an example of how Dc4 can be used as a library for doing useful numeric operations.
+/// The program reads numbers from input, delimited by whitespace, and uses Dc4 to add them up as
+/// it reads them. When it reaches EOF, it prints the resulting sum. Because it uses Dc4, it
 /// supports arbitrary precision.
 
 use dc4::Dc4;
@@ -63,19 +63,19 @@ impl Options {
     }
 }
 
-// Thin wrapper around DC4::action. We only expect DCResult::Continue, so turn any other result
+// Thin wrapper around Dc4::action. We only expect DcResult::Continue, so turn any other result
 // into an Err so we can use the question mark operator.
 fn action(dc: &mut Dc4, action: Action, w: &mut impl Write)
-    -> Result<(), dc4::DCError>
+    -> Result<(), dc4::DcError>
 {
     match dc.action(action, w) {
-        Ok(dc4::DCResult::Continue) => Ok(()),
+        Ok(dc4::DcResult::Continue) => Ok(()),
         Ok(other) => Err(format!("unexpected result: {:?}", other).into()),
         Err(other) => Err(other),
     }
 }
 
-fn run(r: impl BufRead, mut w: impl Write) -> Result<(), dc4::DCError> {
+fn run(r: impl BufRead, mut w: impl Write) -> Result<(), dc4::DcError> {
     let mut dc = Dc4::new("sum-numbers".to_owned());
 
     let opts = Options::parse(std::env::args())
@@ -98,7 +98,7 @@ fn run(r: impl BufRead, mut w: impl Write) -> Result<(), dc4::DCError> {
 
     //for result in Input::new(r) {
     for result in r.lines() {
-        let s = result.map_err(|e| dc4::DCError::from(format!("I/O error: {}", e)))?;
+        let s = result.map_err(|e| dc4::DcError::from(format!("I/O error: {}", e)))?;
         // dc uses '_' to designate negative numbers because '-' is used for subtraction, so
         // replace it.
         if let Err(e) = dc.push_number(s.replace('-', "_").trim()) {

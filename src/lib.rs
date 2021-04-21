@@ -31,8 +31,7 @@ impl Dc4 {
     ///
     /// This consumes the entire stream. Errors do not stop the program; they are written to
     /// output, but execution continues.
-    pub fn stream(&mut self, r: &mut impl BufRead, w: &mut impl Write)
-        -> DCResult
+    pub fn stream(&mut self, r: &mut impl BufRead, w: &mut impl Write) -> DcResult
     {
         let mut actions = reader_parser::ReaderParser::new(r);
         // There's no safe way to stop mid-stream on an error, because ReaderParser may have read
@@ -50,7 +49,7 @@ impl Dc4 {
     /// Run a given program text as if it was a macro.
     ///
     /// Errors do not stop the program; they are written to output, but execution continues.
-    pub fn text(&mut self, text: impl Into<Vec<u8>>, w: &mut impl Write) -> DCResult {
+    pub fn text(&mut self, text: impl Into<Vec<u8>>, w: &mut impl Write) -> DcResult {
         self.state.run_macro(text.into(), w)
     }
 
@@ -58,26 +57,26 @@ impl Dc4 {
     ///
     /// Stops on the first error encountered.
     pub fn actions(&mut self, actions: impl Iterator<Item = Action>, w: &mut impl Write)
-        -> Result<DCResult, DCError>
+        -> Result<DcResult, DcError>
     {
         for action in actions {
             let mut result = self.state.action(action, w);
-            if let Ok(DCResult::Macro(text)) = result {
+            if let Ok(DcResult::Macro(text)) = result {
                 result = Ok(self.state.run_macro(text, w));
             }
             match result {
-                Ok(DCResult::Continue) => (),
-                Ok(DCResult::QuitLevels(_)) => (), // 'Q' mustn't exit the top level
+                Ok(DcResult::Continue) => (),
+                Ok(DcResult::QuitLevels(_)) => (), // 'Q' mustn't exit the top level
                 Ok(other) => return Ok(other),
                 Err(e) => return Err(e),
             }
         }
-        Ok(DCResult::Continue)
+        Ok(DcResult::Continue)
     }
 
     /// Convenience function for pushing a number onto the stack. Returns Err if the given string
     /// is not a valid number.
-    pub fn push_number(&mut self, input: impl AsRef<[u8]>) -> Result<(), DCError> {
+    pub fn push_number(&mut self, input: impl AsRef<[u8]>) -> Result<(), DcError> {
         self.state.push_number(input)
     }
 
@@ -93,19 +92,19 @@ impl Dc4 {
     ///
     /// Errors get returned to the caller and are not written to the writer, but any warnings will
     /// get written as output.
-    pub fn action(&mut self, action: Action, w: &mut impl Write) -> Result<DCResult, DCError> {
+    pub fn action(&mut self, action: Action, w: &mut impl Write) -> Result<DcResult, DcError> {
         self.state.action(action, w)
     }
 }
 
 #[derive(Clone, Debug)]
-pub enum DCValue {
+pub enum DcValue {
     Str(Vec<u8>),
     Num(big_real::BigReal)
 }
 
 #[derive(Debug)]
-pub enum DCResult {
+pub enum DcResult {
     Terminate(u32),
     QuitLevels(u32),
     Continue,
@@ -113,29 +112,29 @@ pub enum DCResult {
 }
 
 #[derive(Debug)]
-pub enum DCError {
+pub enum DcError {
     Message(String),
     StaticMessage(&'static str),
 }
 
-impl std::fmt::Display for DCError {
+impl std::fmt::Display for DcError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg = match *self {
-            DCError::Message(ref msg) => msg,
-            DCError::StaticMessage(msg) => msg,
+            DcError::Message(ref msg) => msg,
+            DcError::StaticMessage(msg) => msg,
         };
         f.write_str(msg)
     }
 }
 
-impl From<String> for DCError {
-    fn from(s: String) -> DCError {
-        DCError::Message(s)
+impl From<String> for DcError {
+    fn from(s: String) -> DcError {
+        DcError::Message(s)
     }
 }
 
-impl From<&'static str> for DCError {
-    fn from(s: &'static str) -> DCError {
-        DCError::StaticMessage(s)
+impl From<&'static str> for DcError {
+    fn from(s: &'static str) -> DcError {
+        DcError::StaticMessage(s)
     }
 }

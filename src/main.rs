@@ -4,7 +4,7 @@
 // This is the program entry point.
 // It parses command line arguments and invokes the dc4 library.
 //
-// Copyright (c) 2015-2020 by William R. Fraser
+// Copyright (c) 2015-2021 by William R. Fraser
 //
 
 #![deny(rust_2018_idioms)]
@@ -15,7 +15,7 @@ use std::io;
 use std::path::Path;
 
 use dc4::Dc4;
-use dc4::DCResult;
+use dc4::DcResult;
 
 fn progname() -> String {
     Path::new(env::args_os().next().expect("no program name?!").as_os_str())
@@ -46,16 +46,16 @@ fn print_usage() {
 }
 
 #[derive(Debug, PartialEq)]
-enum DCInput<'a> {
+enum DcInput<'a> {
     Expression(&'a str),
     File(&'a str),
     Stdin,
 }
 
 fn parse_arguments<'a>(args: &'a [&'a str])
-        -> Option<Vec<DCInput<'a>>> {
-    let mut inputs: Vec<DCInput<'a>> = Vec::new();
-    let mut bare_file_args: Vec<DCInput<'a>> = Vec::new();
+        -> Option<Vec<DcInput<'a>>> {
+    let mut inputs: Vec<DcInput<'a>> = Vec::new();
+    let mut bare_file_args: Vec<DcInput<'a>> = Vec::new();
 
     let expression_str = "--expression=";
     let file_str = "--file=";
@@ -72,7 +72,7 @@ fn parse_arguments<'a>(args: &'a [&'a str])
         }
 
         if seen_double_dash {
-            inputs.push(DCInput::File(arg));
+            inputs.push(DcInput::File(arg));
             process_stdin = false;
         }
         else if arg == "-V" || arg == "--version" {
@@ -90,7 +90,7 @@ fn parse_arguments<'a>(args: &'a [&'a str])
             }
 
             let p = &args[i + 1];
-            inputs.push(DCInput::Expression(p));
+            inputs.push(DcInput::Expression(p));
 
             skip = 1;
             process_stdin = false;
@@ -99,7 +99,7 @@ fn parse_arguments<'a>(args: &'a [&'a str])
                 && &arg[..expression_str.len()] == expression_str {
             let p = &arg[expression_str.len()..];
 
-            inputs.push(DCInput::Expression(p));
+            inputs.push(DcInput::Expression(p));
             process_stdin = false;
         }
         else if arg == "-f" {
@@ -110,9 +110,9 @@ fn parse_arguments<'a>(args: &'a [&'a str])
 
             let p = &args[i + 1];
             if !seen_double_dash && p == &"-" {
-                inputs.push(DCInput::Stdin);
+                inputs.push(DcInput::Stdin);
             } else {
-                inputs.push(DCInput::File(p));
+                inputs.push(DcInput::File(p));
             }
             skip = 1;
             process_stdin = false;
@@ -121,18 +121,18 @@ fn parse_arguments<'a>(args: &'a [&'a str])
             seen_double_dash = true;
         }
         else if arg == "-" {
-            bare_file_args.push(DCInput::Stdin);
+            bare_file_args.push(DcInput::Stdin);
             process_stdin = false;
         }
         else if arg.len() > file_str.len()
                 && &arg[..file_str.len()] == file_str {
 
             let p = &arg[file_str.len()..];
-            inputs.push(DCInput::File(p));
+            inputs.push(DcInput::File(p));
             process_stdin = false;
         }
         else if i != 0 {
-            bare_file_args.push(DCInput::File(arg));
+            bare_file_args.push(DcInput::File(arg));
             process_stdin = false;
         }
     }
@@ -140,7 +140,7 @@ fn parse_arguments<'a>(args: &'a [&'a str])
     inputs.append(&mut bare_file_args);
 
     if process_stdin {
-        inputs.push(DCInput::Stdin);
+        inputs.push(DcInput::Stdin);
     }
 
     Some(inputs)
@@ -150,7 +150,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let args_references: Vec<&str> = args.iter().map(|owned| &owned[..]).collect();
 
-    let inputs: Vec<DCInput<'_>> = match parse_arguments(&args_references) {
+    let inputs: Vec<DcInput<'_>> = match parse_arguments(&args_references) {
         Some(x) => x,
         None => return,
     };
@@ -159,19 +159,19 @@ fn main() {
 
     for input in inputs {
         let result = match input {
-            DCInput::Expression(expr) => {
+            DcInput::Expression(expr) => {
                 dc.text(expr.as_bytes().to_vec(), &mut io::stdout())
             },
-            DCInput::File(path) => {
+            DcInput::File(path) => {
                 match File::open(path) {
                     Ok(file) => dc.stream(&mut std::io::BufReader::new(file), &mut io::stdout()),
                     Err(e)       => {
                         println!("{}: File open failed on {:?}: {}", progname(), path, e);
-                        DCResult::Terminate(0)
+                        DcResult::Terminate(0)
                     }
                 }
             },
-            DCInput::Stdin => {
+            DcInput::Stdin => {
                 let stdin = io::stdin();
                 let mut lock = stdin.lock();
                 dc.stream(&mut lock, &mut io::stdout())
@@ -179,11 +179,11 @@ fn main() {
         };
 
         match result {
-            DCResult::Macro(_) => panic!("unhandled macro"),
-            DCResult::Terminate(_) => return,
-            DCResult::QuitLevels(_) // if there are quit levels left at the end of an input, they
+            DcResult::Macro(_) => panic!("unhandled macro"),
+            DcResult::Terminate(_) => return,
+            DcResult::QuitLevels(_) // if there are quit levels left at the end of an input, they
                                     // are ignored.
-                | DCResult::Continue
+                | DcResult::Continue
                 => (),
         }
     }
@@ -195,15 +195,15 @@ fn test_parseargs() {
     let result = parse_arguments(&args).unwrap();
 
     // first, the options:
-    assert_eq!(result[0], DCInput::Expression("e1"));
-    assert_eq!(result[1], DCInput::Expression("e2"));
-    assert_eq!(result[2], DCInput::File("file3"));
+    assert_eq!(result[0], DcInput::Expression("e1"));
+    assert_eq!(result[1], DcInput::Expression("e2"));
+    assert_eq!(result[2], DcInput::File("file3"));
 
     // then the non-option inputs:
-    assert_eq!(result[3], DCInput::File("file1"));
-    assert_eq!(result[4], DCInput::File("file2"));
-    assert_eq!(result[5], DCInput::Stdin);
-    assert_eq!(result[6], DCInput::File("file4"));
+    assert_eq!(result[3], DcInput::File("file1"));
+    assert_eq!(result[4], DcInput::File("file2"));
+    assert_eq!(result[5], DcInput::Stdin);
+    assert_eq!(result[6], DcInput::File("file4"));
 
     assert_eq!(result.len(), 7);
 }

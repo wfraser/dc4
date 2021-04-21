@@ -10,14 +10,14 @@ use num_bigint::BigInt;
 use num_traits::{ToPrimitive, Zero};
 
 use crate::big_real::BigReal;
-use crate::dcregisters::DCRegisters;
+use crate::dcregisters::DcRegisters;
 use crate::parser::{Action, RegisterAction, Parser};
-use crate::{DCValue, DCResult, DCError};
+use crate::{DcValue, DcResult, DcError};
 
 pub struct Dc4State {
     program_name: String,
-    stack: Vec<DCValue>,
-    registers: DCRegisters,
+    stack: Vec<DcValue>,
+    registers: DcRegisters,
     scale: u32,
     iradix: u32,
     oradix: u32,
@@ -30,7 +30,7 @@ impl Dc4State {
         Self {
             program_name,
             stack: vec![],
-            registers: DCRegisters::new(),
+            registers: DcRegisters::new(),
             scale: 0,
             iradix: 10,
             oradix: 10,
@@ -39,7 +39,7 @@ impl Dc4State {
         }
     }
 
-    pub fn run_macro(&mut self, mut text: Vec<u8>, w: &mut impl Write) -> DCResult {
+    pub fn run_macro(&mut self, mut text: Vec<u8>, w: &mut impl Write) -> DcResult {
         let mut parser = Parser::default();
         let mut tail_recursion_depth = 0;
         let mut pos = 0;
@@ -58,11 +58,11 @@ impl Dc4State {
 
             match action {
                 None => (),
-                Some(Action::Eof) => return DCResult::Continue,
+                Some(Action::Eof) => return DcResult::Continue,
                 Some(action) => {
                     let mut result = self.action(action, w);
 
-                    while let Ok(DCResult::Macro(new_text)) = result {
+                    while let Ok(DcResult::Macro(new_text)) = result {
                         if pos == text.len() {
                             // tail recursion! :D
                             // replace the current text with the new text and start over
@@ -71,7 +71,7 @@ impl Dc4State {
                             cur = None;
                             advance = 0;
                             tail_recursion_depth += 1;
-                            result = Ok(DCResult::Continue);
+                            result = Ok(DcResult::Continue);
                         } else {
                             result = Ok(self.run_macro(new_text, w));
                         }
@@ -84,21 +84,21 @@ impl Dc4State {
                                 return $result_ctor($n - tail_recursion_depth - 1);
                             } else if $n - 1 == tail_recursion_depth {
                                 // quitting stops here
-                                return DCResult::Continue;
+                                return DcResult::Continue;
                             } else if $n > 0 && tail_recursion_depth > 0 {
                                 // if we're doing tail recursion at all, it means our parent virtual
                                 // stack frame is at the end of its text, so just unroll all the
                                 // virtual frames.
-                                return DCResult::Continue;
+                                return DcResult::Continue;
                             }
                         }
                     }
 
                     match result {
-                        Ok(DCResult::Continue) => (),
-                        Ok(DCResult::QuitLevels(n)) => quit_handler!(n, DCResult::QuitLevels),
-                        Ok(DCResult::Terminate(n)) => quit_handler!(n, DCResult::Terminate),
-                        Ok(DCResult::Macro(_)) => unreachable!(),
+                        Ok(DcResult::Continue) => (),
+                        Ok(DcResult::QuitLevels(n)) => quit_handler!(n, DcResult::QuitLevels),
+                        Ok(DcResult::Terminate(n)) => quit_handler!(n, DcResult::Terminate),
+                        Ok(DcResult::Macro(_)) => unreachable!(),
                         Err(msg) => {
                             self.error(w, format_args!("{}", msg));
                         }
@@ -110,7 +110,7 @@ impl Dc4State {
 
     /// Convenience function for pushing a number onto the stack. Returns Err if the given string
     /// is not a valid number.
-    pub fn push_number(&mut self, input: impl AsRef<[u8]>) -> Result<(), DCError> {
+    pub fn push_number(&mut self, input: impl AsRef<[u8]>) -> Result<(), DcError> {
         let mut num = Number::default();
         let mut first = true;
         for c in input.as_ref() {
@@ -128,13 +128,13 @@ impl Dc4State {
     /// Convenience function for pushing a string directly onto the stack (rather than running
     /// Action::StringChar for each byte, followed by Action::PushString).
     pub fn push_string(&mut self, string: impl Into<Vec<u8>>) {
-        self.stack.push(DCValue::Str(string.into()));
+        self.stack.push(DcValue::Str(string.into()));
     }
 
     /// Perform the given action.
     /// Any output gets written to the given writer, as well as any warnings.
     /// Errors get returned to the caller and are not written to the writer.
-    pub fn action(&mut self, action: Action, w: &mut impl Write) -> Result<DCResult, DCError> {
+    pub fn action(&mut self, action: Action, w: &mut impl Write) -> Result<DcResult, DcError> {
         match action {
             Action::NumberChar(c) => {
                 self.current_num.push(c, self.iradix).expect("unexpected non-number character");
@@ -147,7 +147,7 @@ impl Dc4State {
                 self.current_str.push(c);
             }
             Action::PushString => {
-                self.stack.push(DCValue::Str(self.current_str.split_off(0)));
+                self.stack.push(DcValue::Str(self.current_str.split_off(0)));
             }
             Action::Register(action, register) => match action {
                 RegisterAction::Store => {
@@ -174,22 +174,22 @@ impl Dc4State {
                                 register as char, register).into()),
                     }
                 }
-                RegisterAction::Gt => return Ok(self.cond_macro(register, |a,b| b>a)?),
-                RegisterAction::Le => return Ok(self.cond_macro(register, |a,b| b<=a)?),
-                RegisterAction::Lt => return Ok(self.cond_macro(register, |a,b| b<a)?),
-                RegisterAction::Ge => return Ok(self.cond_macro(register, |a,b| b>=a)?),
-                RegisterAction::Eq => return Ok(self.cond_macro(register, |a,b| b==a)?),
-                RegisterAction::Ne => return Ok(self.cond_macro(register, |a,b| b!=a)?),
+                RegisterAction::Gt => return self.cond_macro(register, |a,b| b>a),
+                RegisterAction::Le => return self.cond_macro(register, |a,b| b<=a),
+                RegisterAction::Lt => return self.cond_macro(register, |a,b| b<a),
+                RegisterAction::Ge => return self.cond_macro(register, |a,b| b>=a),
+                RegisterAction::Eq => return self.cond_macro(register, |a,b| b==a),
+                RegisterAction::Ne => return self.cond_macro(register, |a,b| b!=a),
                 RegisterAction::StoreRegArray => {
                     let maybe_key = match self.pop_top()? {
-                        DCValue::Num(n) => {
+                        DcValue::Num(n) => {
                             if n.is_negative() {
                                 None
                             } else {
                                 Some(n)
                             }
                         }
-                        DCValue::Str(_) => None,
+                        DcValue::Str(_) => None,
                     };
                     let value = self.pop_top()?;
                     match maybe_key {
@@ -200,7 +200,7 @@ impl Dc4State {
                     }
                 }
                 RegisterAction::LoadRegArray => match self.pop_top()? {
-                    DCValue::Num(ref n) if !n.is_negative() => {
+                    DcValue::Num(ref n) if !n.is_negative() => {
                         let value = self.registers.get(register)
                             .array_load(n)
                             .as_ref()
@@ -224,8 +224,8 @@ impl Dc4State {
             }
             Action::PrintBytesPop => {
                 match self.pop_top()? {
-                    DCValue::Str(s) => { w.write_all(&s).unwrap(); }
-                    DCValue::Num(n) => {
+                    DcValue::Str(s) => { w.write_all(&s).unwrap(); }
+                    DcValue::Num(n) => {
                         let (_sign, bytes) = n.to_int().to_bytes_be();
                         w.write_all(&bytes).unwrap();
                     }
@@ -272,8 +272,8 @@ impl Dc4State {
                 };
                 self.stack.pop();
                 self.stack.pop();
-                self.stack.push(DCValue::Num(n1));
-                self.stack.push(DCValue::Num(n2));
+                self.stack.push(DcValue::Num(n1));
+                self.stack.push(DcValue::Num(n2));
             }
             Action::Exp => {
                 let mut warn = false;
@@ -295,14 +295,14 @@ impl Dc4State {
                 if self.stack.len() >= 3 {
                     for (i, value) in self.stack[self.stack.len() - 3..].iter().enumerate() {
                         match *value {
-                            DCValue::Num(ref n) => {
+                            DcValue::Num(ref n) => {
                                 if i == 1 && n.is_negative() {
                                     return Err("negative exponent".into());
                                 } else if i == 2 && n.is_zero() {
                                     return Err("remainder by zero".into());
                                 }
                             },
-                            DCValue::Str(_) => return Err("non-numeric value".into())
+                            DcValue::Str(_) => return Err("non-numeric value".into())
                         }
                     }
                 } else {
@@ -310,8 +310,8 @@ impl Dc4State {
                 }
 
                 let unwrap_int = |value| match value {
-                    DCValue::Num(n) => n,
-                    DCValue::Str(_) => unreachable!(), // already checked above
+                    DcValue::Num(n) => n,
+                    DcValue::Str(_) => unreachable!(), // already checked above
                 };
                 let modulus = self.stack.pop().map(unwrap_int).unwrap();
                 let exponent = self.stack.pop().map(unwrap_int).unwrap();
@@ -328,20 +328,20 @@ impl Dc4State {
                 }
 
                 let result = BigReal::modexp(&base, &exponent, &modulus, self.scale).unwrap();
-                self.stack.push(DCValue::Num(result));
+                self.stack.push(DcValue::Num(result));
             }
             Action::Sqrt => match self.pop_top()? {
-                DCValue::Num(n) => {
+                DcValue::Num(n) => {
                     if n.is_negative() {
                         return Err("square root of negative number".into());
                     } else if n.is_zero() {
-                        self.stack.push(DCValue::Num(n));
+                        self.stack.push(DcValue::Num(n));
                     } else {
                         let x = n.sqrt(self.scale).unwrap();
-                        self.stack.push(DCValue::Num(x));
+                        self.stack.push(DcValue::Num(x));
                     }
                 }
-                DCValue::Str(_) => return Err("square root of nonnumeric attempted".into()),
+                DcValue::Str(_) => return Err("square root of nonnumeric attempted".into()),
             }
             Action::ClearStack => self.stack.clear(),
             Action::Dup => if let Some(value) = self.stack.last().cloned() {
@@ -357,7 +357,7 @@ impl Dc4State {
                 }
             }
             Action::Rotate => match self.pop_top()? {
-                DCValue::Num(ref n) if self.stack.len() >= 2 => {
+                DcValue::Num(ref n) if self.stack.len() >= 2 => {
                     let n = match n.to_i32() {
                         Some(n) => n,
                         None => {
@@ -380,7 +380,7 @@ impl Dc4State {
                 _ => (), // do nothing, even if it's the wrong type!
             }
             Action::SetInputRadix => match self.pop_top()? {
-                DCValue::Num(n) => {
+                DcValue::Num(n) => {
                     match n.to_u32() {
                         Some(radix) if (2..=16).contains(&radix) => {
                             self.iradix = radix;
@@ -390,7 +390,7 @@ impl Dc4State {
                         }
                     }
                 }
-                DCValue::Str(_) => {
+                DcValue::Str(_) => {
                     return Err("input base must be a number between 2 and 16 (inclusive)".into());
                 }
             }
@@ -400,7 +400,7 @@ impl Dc4State {
                 // 'A'...'F' will be interpreted as numbers.
                 // On the other hand, actual dc supports unlimited output radix, but after 16 it
                 // starts to use a different format.
-                DCValue::Num(n) => {
+                DcValue::Num(n) => {
                     match n.to_u32() {
                         Some(radix) if (2..=16).contains(&radix) => {
                             self.oradix = radix;
@@ -410,12 +410,12 @@ impl Dc4State {
                         }
                     }
                 }
-                DCValue::Str(_) => {
+                DcValue::Str(_) => {
                     return Err("output base must be a number between 2 and 16 (inclusive)".into());
                 }
             }
             Action::SetPrecision => match self.pop_top()? {
-                DCValue::Num(n) => {
+                DcValue::Num(n) => {
                     if n.is_negative() {
                         return Err("scale must be a nonnegative number".into());
                     }
@@ -428,26 +428,26 @@ impl Dc4State {
                         }
                     }
                 }
-                DCValue::Str(_) => {
+                DcValue::Str(_) => {
                     return Err("scale must be a nonnegative number".into());
                 }
             }
-            Action::LoadInputRadix => self.stack.push(DCValue::Num(BigReal::from(self.iradix))),
-            Action::LoadOutputRadix => self.stack.push(DCValue::Num(BigReal::from(self.oradix))),
-            Action::LoadPrecision => self.stack.push(DCValue::Num(BigReal::from(self.scale))),
+            Action::LoadInputRadix => self.stack.push(DcValue::Num(BigReal::from(self.iradix))),
+            Action::LoadOutputRadix => self.stack.push(DcValue::Num(BigReal::from(self.oradix))),
+            Action::LoadPrecision => self.stack.push(DcValue::Num(BigReal::from(self.scale))),
             Action::Asciify => match self.pop_top()? {
-                DCValue::Str(mut s) => {
+                DcValue::Str(mut s) => {
                     s.truncate(1);
-                    self.stack.push(DCValue::Str(s));
+                    self.stack.push(DcValue::Str(s));
                 }
-                DCValue::Num(n) => {
+                DcValue::Num(n) => {
                     let (_sign, bytes) = n.to_int().to_bytes_le();
-                    self.stack.push(DCValue::Str(format!("{}", bytes[0] as char).into_bytes()));
+                    self.stack.push(DcValue::Str(format!("{}", bytes[0] as char).into_bytes()));
                 }
             }
             Action::ExecuteMacro => match self.pop_top()? {
-                DCValue::Str(text) => return Ok(DCResult::Macro(text)),
-                num @ DCValue::Num(_) => self.stack.push(num),
+                DcValue::Str(text) => return Ok(DcResult::Macro(text)),
+                num @ DcValue::Num(_) => self.stack.push(num),
             }
             Action::Input => {
                 let mut line = vec![];
@@ -456,29 +456,29 @@ impl Dc4State {
                 if let Err(e) = handle.read_until(b'\n', &mut line) {
                     writeln!(w, "warning: error reading input: {}", e).unwrap();
                 }
-                return Ok(DCResult::Macro(line));
+                return Ok(DcResult::Macro(line));
             }
-            Action::Quit => return Ok(DCResult::Terminate(2)),
+            Action::Quit => return Ok(DcResult::Terminate(2)),
             Action::QuitLevels => match self.pop_top()? {
-                DCValue::Num(ref n) if n.is_positive() => {
+                DcValue::Num(ref n) if n.is_positive() => {
                     return n.to_u32()
-                        .map(DCResult::QuitLevels)
+                        .map(DcResult::QuitLevels)
                         .ok_or_else(|| "quit levels out of range (must fit into 32 bits)".into());
                 }
-                DCValue::Num(_) | DCValue::Str(_) =>
+                DcValue::Num(_) | DcValue::Str(_) =>
                     return Err("Q command requires a number >= 1".into()),
             }
             Action::NumDigits => match self.pop_top()? {
-                DCValue::Num(n) => self.stack.push(DCValue::Num(BigReal::from(n.num_digits()))),
-                DCValue::Str(s) => self.stack.push(DCValue::Num(BigReal::from(s.len()))),
+                DcValue::Num(n) => self.stack.push(DcValue::Num(BigReal::from(n.num_digits()))),
+                DcValue::Str(s) => self.stack.push(DcValue::Num(BigReal::from(s.len()))),
             }
             Action::NumFrxDigits => match self.pop_top()? {
-                DCValue::Num(n) => self.stack.push(DCValue::Num(BigReal::from(n.num_frx_digits()))),
-                DCValue::Str(_) => self.stack.push(DCValue::Num(BigReal::zero())),
+                DcValue::Num(n) => self.stack.push(DcValue::Num(BigReal::from(n.num_frx_digits()))),
+                DcValue::Str(_) => self.stack.push(DcValue::Num(BigReal::zero())),
             }
             Action::StackDepth => {
                 let depth = self.stack.len();
-                self.stack.push(DCValue::Num(BigReal::from(depth)));
+                self.stack.push(DcValue::Num(BigReal::from(depth)));
             }
             Action::ShellExec => {
                 return Err("running shell commands is not supported".into());
@@ -487,8 +487,8 @@ impl Dc4State {
                 let ver = env!("CARGO_PKG_VERSION_MAJOR").parse::<u64>().unwrap() << 24
                         | env!("CARGO_PKG_VERSION_MINOR").parse::<u64>().unwrap() << 16
                         | env!("CARGO_PKG_VERSION_PATCH").parse::<u64>().unwrap();
-                self.stack.push(DCValue::Num(BigReal::from(ver)));
-                self.stack.push(DCValue::Str("dc4".to_owned().into_bytes()));
+                self.stack.push(DcValue::Num(BigReal::from(ver)));
+                self.stack.push(DcValue::Str("dc4".to_owned().into_bytes()));
             }
             Action::Eof => (), // nothing to do
             Action::Unimplemented(c) => {
@@ -498,23 +498,23 @@ impl Dc4State {
                 return Err(msg.into());
             }
         }
-        Ok(DCResult::Continue)
+        Ok(DcResult::Continue)
     }
 
-    fn print_elem(&self, elem: &DCValue, w: &mut impl Write) {
+    fn print_elem(&self, elem: &DcValue, w: &mut impl Write) {
         match *elem {
-            DCValue::Num(ref n) => if n.is_zero() {
+            DcValue::Num(ref n) => if n.is_zero() {
                 // dc special-cases zero and ignores the scale, opting to not print the extra zero
                 // digits.
                 write!(w, "0")
             } else {
                 write!(w, "{}", n.to_str_radix(self.oradix).to_uppercase())
             }
-            DCValue::Str(ref s) => w.write_all(&s),
+            DcValue::Str(ref s) => w.write_all(&s),
         }.unwrap();
     }
 
-    fn get_two_ints(&self) -> Result<(&BigReal, &BigReal), DCError> {
+    fn get_two_ints(&self) -> Result<(&BigReal, &BigReal), DcError> {
         let a: &BigReal;
         let b: &BigReal;
 
@@ -523,13 +523,13 @@ impl Dc4State {
             return Err("stack empty".into());
         }
 
-        if let DCValue::Num(ref n) = self.stack[len - 2] {
+        if let DcValue::Num(ref n) = self.stack[len - 2] {
             a = n;
         } else {
             return Err("non-numeric value".into());
         }
 
-        if let DCValue::Num(ref n) = self.stack[len - 1] {
+        if let DcValue::Num(ref n) = self.stack[len - 1] {
             b = n;
         } else {
             return Err("non-numeric value".into());
@@ -538,13 +538,13 @@ impl Dc4State {
         Ok((a, b))
     }
 
-    fn pop_top(&mut self) -> Result<DCValue, DCError> {
+    fn pop_top(&mut self) -> Result<DcValue, DcError> {
         self.stack.pop()
             .ok_or_else(|| "stack empty".into())
     }
 
-    fn binary_lambda<T, F>(&mut self, mut f: F) -> Result<T, DCError>
-        where F: FnMut(&BigReal, &BigReal) -> Result<T, DCError>
+    fn binary_lambda<T, F>(&mut self, mut f: F) -> Result<T, DcError>
+        where F: FnMut(&BigReal, &BigReal) -> Result<T, DcError>
     {
         let value: T = {
             let (a, b) = self.get_two_ints()?;
@@ -556,27 +556,27 @@ impl Dc4State {
         Ok(value)
     }
 
-    fn binary_operator<F>(&mut self, mut f: F) -> Result<(), DCError>
-        where F: FnMut(&BigReal, &BigReal) -> Result<BigReal, DCError>
+    fn binary_operator<F>(&mut self, mut f: F) -> Result<(), DcError>
+        where F: FnMut(&BigReal, &BigReal) -> Result<BigReal, DcError>
     {
         let n = self.binary_lambda(|a, b| f(a, b))?;
-        self.stack.push(DCValue::Num(n));
+        self.stack.push(DcValue::Num(n));
         Ok(())
     }
 
-    fn cond_macro<F>(&mut self, register: u8, f: F) -> Result<DCResult, DCError>
+    fn cond_macro<F>(&mut self, register: u8, f: F) -> Result<DcResult, DcError>
         where F: Fn(&BigReal, &BigReal) -> bool
     {
         if self.binary_lambda(|a, b| Ok(f(a, b)))? {
             let text = match self.registers.get(register).value() {
-                Some(DCValue::Str(s)) => s.to_owned(),
-                Some(DCValue::Num(_)) => return Ok(DCResult::Continue),
+                Some(DcValue::Str(s)) => s.to_owned(),
+                Some(DcValue::Num(_)) => return Ok(DcResult::Continue),
                 None => return Err(
                     format!("register '{}' (0{:o}) is empty", register as char, register).into()),
             };
-            Ok(DCResult::Macro(text))
+            Ok(DcResult::Macro(text))
         } else {
-            Ok(DCResult::Continue)
+            Ok(DcResult::Continue)
         }
     }
 
@@ -610,7 +610,7 @@ impl Number {
         Ok(())
     }
 
-    pub fn finish(mut self, iradix: u32) -> DCValue {
+    pub fn finish(mut self, iradix: u32) -> DcValue {
         if self.neg {
             self.int *= -1;
         }
@@ -633,6 +633,6 @@ impl Number {
                 }
             }
         }
-        DCValue::Num(real)
+        DcValue::Num(real)
     }
 }
