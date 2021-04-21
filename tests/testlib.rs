@@ -1,32 +1,30 @@
 //
 // dc4 test suite
 //
-// Copyright (c) 2015-2020 by William R. Fraser
+// Copyright (c) 2015-2021 by William R. Fraser
 //
 
 #![deny(rust_2018_idioms)]
-
-use std::io::Cursor;
 
 fn dc4_run(expr: &[u8]) -> String {
     String::from_utf8(dc4_run_bytes(expr)).unwrap()
 }
 
 fn dc4_run_bytes(expr: &[u8]) -> Vec<u8> {
-    let mut dc = dc4::DC4::new("dc4 cargo test".to_string());
+    let mut dc = dc4::Dc4::new("dc4 cargo test".to_string());
     let mut out = Vec::<u8>::new();
 
-    dc.program(&mut Cursor::new(expr), &mut out);
+    dc.text(expr.to_vec(), &mut out);
 
     out
 }
 
 fn dc4_run_two(expr1: &[u8], expr2: &[u8]) -> String {
-    let mut dc = dc4::DC4::new("dc4 cargo test".to_string());
+    let mut dc = dc4::Dc4::new("dc4 cargo test".to_string());
     let mut out = Vec::<u8>::new();
 
-    dc.program(&mut Cursor::new(expr1), &mut out);
-    dc.program(&mut Cursor::new(expr2), &mut out);
+    dc.text(expr1.to_vec(), &mut out);
+    dc.text(expr2.to_vec(), &mut out);
 
     String::from_utf8(out).unwrap()
 }

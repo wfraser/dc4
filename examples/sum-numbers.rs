@@ -11,7 +11,7 @@
 /// it reads them. When it reaches EOF, it prints the resulting sum. Because it uses DC4, it
 /// supports arbitrary precision.
 
-use dc4::DC4;
+use dc4::Dc4;
 use dc4::parser::Action;
 use std::io::{self, BufRead, Write};
 
@@ -65,7 +65,7 @@ impl Options {
 
 // Thin wrapper around DC4::action. We only expect DCResult::Continue, so turn any other result
 // into an Err so we can use the question mark operator.
-fn action(dc: &mut DC4, action: Action, w: &mut impl Write)
+fn action(dc: &mut Dc4, action: Action, w: &mut impl Write)
     -> Result<(), dc4::DCError>
 {
     match dc.action(action, w) {
@@ -76,7 +76,7 @@ fn action(dc: &mut DC4, action: Action, w: &mut impl Write)
 }
 
 fn run(r: impl BufRead, mut w: impl Write) -> Result<(), dc4::DCError> {
-    let mut dc = DC4::new("sum-numbers".to_owned());
+    let mut dc = Dc4::new("sum-numbers".to_owned());
 
     let opts = Options::parse(std::env::args())
         .unwrap_or_else(|e| {

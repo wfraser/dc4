@@ -11,10 +11,10 @@
 
 use std::env;
 use std::fs::File;
-use std::io::{self, Cursor};
+use std::io;
 use std::path::Path;
 
-use dc4::DC4;
+use dc4::Dc4;
 use dc4::DCResult;
 
 fn progname() -> String {
@@ -155,16 +155,16 @@ fn main() {
         None => return,
     };
 
-    let mut dc = DC4::new(progname());
+    let mut dc = Dc4::new(progname());
 
     for input in inputs {
         let result = match input {
             DCInput::Expression(expr) => {
-                dc.program(&mut Cursor::new(expr.as_bytes()), &mut io::stdout())
+                dc.text(expr.as_bytes().to_vec(), &mut io::stdout())
             },
             DCInput::File(path) => {
                 match File::open(path) {
-                    Ok(file) => dc.program(&mut std::io::BufReader::new(file), &mut io::stdout()),
+                    Ok(file) => dc.stream(&mut std::io::BufReader::new(file), &mut io::stdout()),
                     Err(e)       => {
                         println!("{}: File open failed on {:?}: {}", progname(), path, e);
                         DCResult::Terminate(0)
@@ -174,7 +174,7 @@ fn main() {
             DCInput::Stdin => {
                 let stdin = io::stdin();
                 let mut lock = stdin.lock();
-                dc.program(&mut lock, &mut io::stdout())
+                dc.stream(&mut lock, &mut io::stdout())
             },
         };
 

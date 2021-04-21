@@ -1,7 +1,7 @@
 //
 // dc4 main program state
 //
-// Copyright (c) 2015-2020 by William R. Fraser
+// Copyright (c) 2015-2021 by William R. Fraser
 //
 
 use std::fmt;
@@ -12,10 +12,9 @@ use num_traits::{ToPrimitive, Zero};
 use crate::big_real::BigReal;
 use crate::dcregisters::DCRegisters;
 use crate::parser::{Action, RegisterAction, Parser};
-use crate::reader_parser::ReaderParser;
 use crate::{DCValue, DCResult, DCError};
 
-pub struct DC4 {
+pub struct Dc4State {
     program_name: String,
     stack: Vec<DCValue>,
     registers: DCRegisters,
@@ -26,7 +25,7 @@ pub struct DC4 {
     current_num: Number,
 }
 
-impl DC4 {
+impl Dc4State {
     pub fn new(program_name: String) -> Self {
         Self {
             program_name,
@@ -40,28 +39,7 @@ impl DC4 {
         }
     }
 
-    pub fn program(&mut self, r: &mut impl BufRead, w: &mut impl Write) -> DCResult {
-        for action in ReaderParser::new(r) {
-            let mut result = self.action(action, w);
-            if let Ok(DCResult::Macro(text)) = result {
-                result = self.run_macro(text, w);
-            }
-            match result {
-                Ok(DCResult::Continue)  // next loop iteration
-                    | Ok(DCResult::QuitLevels(_))   // 'Q' mustn't exit the top level
-                    => (),
-                Err(msg) => {
-                    self.error(w, format_args!("{}", msg));
-                }
-                Ok(other) => {
-                    return other;
-                }
-            }
-        }
-        DCResult::Continue
-    }
-
-    pub fn run_macro(&mut self, mut text: Vec<u8>, w: &mut impl Write) -> Result<DCResult, DCError> {
+    pub fn run_macro(&mut self, mut text: Vec<u8>, w: &mut impl Write) -> DCResult {
         let mut parser = Parser::default();
         let mut tail_recursion_depth = 0;
         let mut pos = 0;
@@ -80,7 +58,7 @@ impl DC4 {
 
             match action {
                 None => (),
-                Some(Action::Eof) => return Ok(DCResult::Continue),
+                Some(Action::Eof) => return DCResult::Continue,
                 Some(action) => {
                     let mut result = self.action(action, w);
 
@@ -95,7 +73,7 @@ impl DC4 {
                             tail_recursion_depth += 1;
                             result = Ok(DCResult::Continue);
                         } else {
-                            result = self.run_macro(new_text, w);
+                            result = Ok(self.run_macro(new_text, w));
                         }
                     }
 
@@ -103,15 +81,15 @@ impl DC4 {
                     macro_rules! quit_handler {
                         ($n:expr, $result_ctor:path) => {
                             if $n - 1 > tail_recursion_depth {
-                                return Ok($result_ctor($n - tail_recursion_depth - 1));
+                                return $result_ctor($n - tail_recursion_depth - 1);
                             } else if $n - 1 == tail_recursion_depth {
                                 // quitting stops here
-                                return Ok(DCResult::Continue);
+                                return DCResult::Continue;
                             } else if $n > 0 && tail_recursion_depth > 0 {
                                 // if we're doing tail recursion at all, it means our parent virtual
                                 // stack frame is at the end of its text, so just unroll all the
                                 // virtual frames.
-                                return Ok(DCResult::Continue);
+                                return DCResult::Continue;
                             }
                         }
                     }
@@ -130,25 +108,32 @@ impl DC4 {
         }
     }
 
-    // Convenience function for pushing a number onto the stack. Negative sign must be given as an
-    // underscore ('_') character. Returns Err if the given string is not a valid number.
+    /// Convenience function for pushing a number onto the stack. Returns Err if the given string
+    /// is not a valid number.
     pub fn push_number(&mut self, input: impl AsRef<[u8]>) -> Result<(), DCError> {
         let mut num = Number::default();
+        let mut first = true;
         for c in input.as_ref() {
-            num.push(*c, self.iradix)?;
+            if first && *c == b'-' {
+                num.push(b'_', self.iradix)?;
+            } else {
+                num.push(*c, self.iradix)?;
+            }
+            first = false;
         }
         self.stack.push(num.finish(self.iradix));
         Ok(())
     }
 
-    // Convenience function for pushing a string directly onto the stack.
+    /// Convenience function for pushing a string directly onto the stack (rather than running
+    /// Action::StringChar for each byte, followed by Action::PushString).
     pub fn push_string(&mut self, string: impl Into<Vec<u8>>) {
         self.stack.push(DCValue::Str(string.into()));
     }
 
-    // Perform the given action.
-    // Any output gets written to the given writer, as well as any warnings.
-    // Errors get returned to the caller and are not written to the writer.
+    /// Perform the given action.
+    /// Any output gets written to the given writer, as well as any warnings.
+    /// Errors get returned to the caller and are not written to the writer.
     pub fn action(&mut self, action: Action, w: &mut impl Write) -> Result<DCResult, DCError> {
         match action {
             Action::NumberChar(c) => {
@@ -595,7 +580,7 @@ impl DC4 {
         }
     }
 
-    fn error(&self, w: &mut impl Write, args: fmt::Arguments<'_>) {
+    pub(crate) fn error(&self, w: &mut impl Write, args: fmt::Arguments<'_>) {
         writeln!(w, "{}: {}", self.program_name, fmt::format(args)).unwrap();
     }
 }
