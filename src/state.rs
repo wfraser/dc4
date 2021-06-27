@@ -200,9 +200,9 @@ impl Dc4State {
                     }
                 }
                 RegisterAction::LoadRegArray => match self.pop_top()? {
-                    DcValue::Num(ref n) if !n.is_negative() => {
+                    DcValue::Num(n) if !n.is_negative() => {
                         let value = self.registers.get(register)
-                            .array_load(n)
+                            .array_load(&n)
                             .as_ref()
                             .clone();
                         self.stack.push(value);
@@ -212,7 +212,7 @@ impl Dc4State {
             }
             Action::Print => {
                 match self.stack.last() {
-                    Some(ref v) => self.print_elem(v, w),
+                    Some(v) => self.print_elem(v, w),
                     None => return Err("stack empty".into())
                 }
                 writeln!(w).unwrap();
@@ -294,8 +294,8 @@ impl Dc4State {
             Action::ModExp => {
                 if self.stack.len() >= 3 {
                     for (i, value) in self.stack[self.stack.len() - 3..].iter().enumerate() {
-                        match *value {
-                            DcValue::Num(ref n) => {
+                        match value {
+                            DcValue::Num(n) => {
                                 if i == 1 && n.is_negative() {
                                     return Err("negative exponent".into());
                                 } else if i == 2 && n.is_zero() {
@@ -357,7 +357,7 @@ impl Dc4State {
                 }
             }
             Action::Rotate => match self.pop_top()? {
-                DcValue::Num(ref n) if self.stack.len() >= 2 => {
+                DcValue::Num(n) if self.stack.len() >= 2 => {
                     let n = match n.to_i32() {
                         Some(n) => n,
                         None => {
@@ -460,7 +460,7 @@ impl Dc4State {
             }
             Action::Quit => return Ok(DcResult::Terminate(2)),
             Action::QuitLevels => match self.pop_top()? {
-                DcValue::Num(ref n) if n.is_positive() => {
+                DcValue::Num(n) if n.is_positive() => {
                     return n.to_u32()
                         .map(DcResult::QuitLevels)
                         .ok_or_else(|| "quit levels out of range (must fit into 32 bits)".into());
@@ -502,15 +502,15 @@ impl Dc4State {
     }
 
     fn print_elem(&self, elem: &DcValue, w: &mut impl Write) {
-        match *elem {
-            DcValue::Num(ref n) => if n.is_zero() {
+        match elem {
+            DcValue::Num(n) => if n.is_zero() {
                 // dc special-cases zero and ignores the scale, opting to not print the extra zero
                 // digits.
                 write!(w, "0")
             } else {
                 write!(w, "{}", n.to_str_radix(self.oradix).to_uppercase())
             }
-            DcValue::Str(ref s) => w.write_all(&s),
+            DcValue::Str(s) => w.write_all(s),
         }.unwrap();
     }
 
