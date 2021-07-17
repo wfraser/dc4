@@ -48,7 +48,6 @@ pub enum Action {
     ClearStack,         // 'c'
     Dup,                // 'd'
     Swap,               // 'r'
-    Rotate,             // 'R'
 
     SetInputRadix,      // 'i'
     SetOutputRadix,     // 'o'
@@ -175,7 +174,6 @@ impl ParseState {
                 b'c' => (self, Some(Action::ClearStack)),
                 b'd' => (self, Some(Action::Dup)),
                 b'r' => (self, Some(Action::Swap)),
-                b'R' => (self, Some(Action::Rotate)),
 
                 b's' => (ParseState::TwoChar(RegisterAction::Store), None),
                 b'l' => (ParseState::TwoChar(RegisterAction::Load), None),

@@ -356,29 +356,6 @@ impl Dc4State {
                     return Err("stack empty".into());
                 }
             }
-            Action::Rotate => match self.pop_top()? {
-                DcValue::Num(n) if self.stack.len() >= 2 => {
-                    let n = match n.to_i32() {
-                        Some(n) => n,
-                        None => {
-                            return Err("rotation value must fit in 32 bits".into());
-                        }
-                    };
-
-                    let start = match n.abs() as usize {
-                        0 | 1                       => self.stack.len() - 1,
-                        n if n >= self.stack.len()  => 0,
-                        other                       => self.stack.len() - other,
-                    };
-
-                    if n > 0 {
-                        self.stack[start..].rotate_left(1);
-                    } else {
-                        self.stack[start..].rotate_right(1);
-                    }
-                }
-                _ => (), // do nothing, even if it's the wrong type!
-            }
             Action::SetInputRadix => match self.pop_top()? {
                 DcValue::Num(n) => {
                     match n.to_u32() {
