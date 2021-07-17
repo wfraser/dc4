@@ -20,8 +20,8 @@ commands which manipulate the stack or perform I/O.
 The full syntax is well-described by the GNU dc man page. Run `man 1 dc` or
 view [an online version](https://linux.die.net/man/1/dc).
 
-`dc4` is a reimplementation of `dc` based on GNU dc, which is currently the
-most widespread version, and which contains significant extensions over the
+`dc4` is a reimplementation of `dc` compatible with GNU dc, which is currently
+the most widespread version, and which contains significant extensions over the
 traditional Unix version. The source code of GNU dc was not used to develop
 dc4, but its documentation and its observed behavior were used extensively.
 

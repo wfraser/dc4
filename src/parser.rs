@@ -82,7 +82,7 @@ pub enum Action {
     Unimplemented(u8),
 
     /// Something went wrong reading or parsing input.
-    InputError(String),
+    InputError(std::io::Error),
 }
 
 #[derive(Debug)]
@@ -141,7 +141,7 @@ impl ParseState {
                     Action::PushString,
                 ParseState::ShellExec => Action::ShellExec,
                 ParseState::TwoChar(_register_action) =>
-                    Action::InputError("unexpected end of input".into())
+                    Action::InputError(std::io::ErrorKind::UnexpectedEof.into())
             };
             return (ParseState::Start, Some(action));
         };

@@ -23,7 +23,7 @@ impl<R: Read> Iterator for ReaderParser<R> {
                             Some(c)
                         }
                         Some(Err(e)) => {
-                            return Some(Action::InputError(format!("I/O error reading input: {}", e)));
+                            return Some(Action::InputError(e));
                         }
                         None => None,
                     }

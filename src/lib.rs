@@ -113,28 +113,55 @@ pub enum DcResult {
 
 #[derive(Debug)]
 pub enum DcError {
-    Message(String),
-    StaticMessage(&'static str),
+    ArrayIndexInvalid,
+    DivideByZero,
+    InputError(std::io::Error),
+    InputRadixInvalid,
+    NegativeExponent,
+    NonNumericValue,
+    OutputRadixInvalid,
+    QuitInvalid,
+    QuitTooBig,
+    RegisterEmpty(u8),
+    RemainderByZero,
+    ScaleInvalid,
+    ScaleTooBig,
+    ShellUnsupported,
+    SqrtNegative,
+    SqrtNonNumeric,
+    StackEmpty,
+    StackRegisterEmpty(u8),
+    UnexpectedNumberChar(u8),
+    Unimplemented(u8),
 }
 
 impl std::fmt::Display for DcError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msg = match *self {
-            DcError::Message(ref msg) => msg,
-            DcError::StaticMessage(msg) => msg,
-        };
-        f.write_str(msg)
+        use DcError::*;
+        // error messages should match those from GNU dc as much as possible
+        match self {
+            ArrayIndexInvalid => f.write_str("array index must be a nonnegative integer"),
+            DivideByZero => f.write_str("divide by zero"),
+            InputError(e) => write!(f, "error reading input: {}", e),
+            InputRadixInvalid => f.write_str("input base must be a number between 2 and 16 (inclusive)"),
+            NegativeExponent => f.write_str("negative exponent"),
+            NonNumericValue => f.write_str("non-numeric value"),
+            OutputRadixInvalid => f.write_str("output base must be a number between 2 and 16 (inclusive)"),
+            QuitInvalid => f.write_str("Q command requires a number >= 1"),
+            QuitTooBig => f.write_str("quit levels out of range (must fit into 32 bits)"),
+            RegisterEmpty(r) => write!(f, "register '{}' (0{:o}) is empty", *r as char, r),
+            RemainderByZero => f.write_str("remainder by zero"),
+            ScaleInvalid => f.write_str("scale must be a nonnegative integer"),
+            ScaleTooBig => f.write_str("scale must fit into 32 bits"),
+            ShellUnsupported => f.write_str("running shell commands is not supported"),
+            SqrtNegative => f.write_str("square root of negative number"),
+            SqrtNonNumeric => f.write_str("square root of nonnumeric attempted"),
+            StackEmpty => f.write_str("stack empty"),
+            StackRegisterEmpty(r) => write!(f, "stack register '{}' (0{:o}) is empty", *r as char, r),
+            UnexpectedNumberChar(c) => write!(f, "unexpected character in number: {:?}", *c as char),
+            Unimplemented(c) => write!(f, "{:?} (0{:o}) unimplemented", *c as char, c),
+        }
     }
 }
 
-impl From<String> for DcError {
-    fn from(s: String) -> DcError {
-        DcError::Message(s)
-    }
-}
-
-impl From<&'static str> for DcError {
-    fn from(s: &'static str) -> DcError {
-        DcError::StaticMessage(s)
-    }
-}
+impl std::error::Error for DcError {}

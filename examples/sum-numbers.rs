@@ -11,7 +11,7 @@
 /// it reads them. When it reaches EOF, it prints the resulting sum. Because it uses Dc4, it
 /// supports arbitrary precision.
 
-use dc4::Dc4;
+use dc4::{Dc4, DcError};
 use dc4::parser::Action;
 use std::io::{self, BufRead, Write};
 
@@ -63,19 +63,36 @@ impl Options {
     }
 }
 
+enum Error {
+    Dc(DcError),
+    Msg(String),
+}
+
+impl From<DcError> for Error {
+    fn from(e: DcError) -> Self {
+        Error::Dc(e)
+    }
+}
+
+impl From<String> for Error {
+    fn from(msg: String) -> Error {
+        Error::Msg(msg)
+    }
+}
+
 // Thin wrapper around Dc4::action. We only expect DcResult::Continue, so turn any other result
 // into an Err so we can use the question mark operator.
 fn action(dc: &mut Dc4, action: Action, w: &mut impl Write)
-    -> Result<(), dc4::DcError>
+    -> Result<(), Error>
 {
     match dc.action(action, w) {
         Ok(dc4::DcResult::Continue) => Ok(()),
         Ok(other) => Err(format!("unexpected result: {:?}", other).into()),
-        Err(other) => Err(other),
+        Err(other) => Err(other.into()),
     }
 }
 
-fn run(r: impl BufRead, mut w: impl Write) -> Result<(), dc4::DcError> {
+fn run(r: impl BufRead, mut w: impl Write) -> Result<(), Error> {
     let mut dc = Dc4::new("sum-numbers".to_owned());
 
     let opts = Options::parse(std::env::args())
@@ -96,9 +113,8 @@ fn run(r: impl BufRead, mut w: impl Write) -> Result<(), dc4::DcError> {
     // initial value
     dc.push_number("0").unwrap();
 
-    //for result in Input::new(r) {
     for result in r.lines() {
-        let s = result.map_err(|e| dc4::DcError::from(format!("I/O error: {}", e)))?;
+        let s = result.map_err(|e| format!("I/O error: {}", e))?;
         // dc uses '_' to designate negative numbers because '-' is used for subtraction, so
         // replace it.
         if let Err(e) = dc.push_number(s.replace('-', "_").trim()) {
@@ -117,7 +133,10 @@ fn main() {
     let stdin_lock = stdin.lock();
 
     if let Err(result) = run(stdin_lock, w) {
-        eprintln!("error: {}", result);
+        eprintln!("error: {}", match result {
+            Error::Msg(msg) => msg,
+            Error::Dc(e) => e.to_string(),
+        });
         std::process::exit(2);
     }
 }

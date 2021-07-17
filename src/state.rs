@@ -157,9 +157,7 @@ impl Dc4State {
                 RegisterAction::Load => {
                     match self.registers.get(register).value() {
                         Some(value) => self.stack.push(value.clone()),
-                        None => return Err(
-                            format!("register '{}' (0{:o}) is empty",
-                                register as char, register).into()),
+                        None => return Err(DcError::RegisterEmpty(register)),
                     }
                 }
                 RegisterAction::PushRegStack => {
@@ -169,9 +167,7 @@ impl Dc4State {
                 RegisterAction::PopRegStack => {
                     match self.registers.get_mut(register).pop() {
                         Some(value) => self.stack.push(value),
-                        None => return Err(
-                            format!("stack register '{}' (0{:o}) is empty",
-                                register as char, register).into()),
+                        None => return Err(DcError::StackRegisterEmpty(register)),
                     }
                 }
                 RegisterAction::Gt => return self.cond_macro(register, |a,b| b>a),
@@ -193,7 +189,7 @@ impl Dc4State {
                     };
                     let value = self.pop_top()?;
                     match maybe_key {
-                        None => return Err("array index must be a nonnegative integer".into()),
+                        None => return Err(DcError::ArrayIndexInvalid),
                         Some(key) => {
                             self.registers.get_mut(register).array_store(key, value);
                         }
@@ -207,13 +203,13 @@ impl Dc4State {
                             .clone();
                         self.stack.push(value);
                     }
-                    _ => return Err("array index must be a nonnegative integer".into()),
+                    _ => return Err(DcError::ArrayIndexInvalid),
                 }
             }
             Action::Print => {
                 match self.stack.last() {
                     Some(v) => self.print_elem(v, w),
-                    None => return Err("stack empty".into())
+                    None => return Err(DcError::StackEmpty)
                 }
                 writeln!(w).unwrap();
             }
@@ -245,7 +241,7 @@ impl Dc4State {
                 let scale = self.scale;
                 self.binary_operator(|a, b| {
                     if b.is_zero() {
-                        Err("divide by zero".into())
+                        Err(DcError::DivideByZero)
                     } else {
                         Ok(a.div(b, scale))
                     }
@@ -255,7 +251,7 @@ impl Dc4State {
                 let scale = self.scale;
                 self.binary_operator(|a, b| {
                     if b.is_zero() {
-                        Err("remainder by zero".into())
+                        Err(DcError::RemainderByZero)
                     } else {
                         Ok(a.rem(b, scale))
                     }
@@ -266,7 +262,7 @@ impl Dc4State {
                 let (n1, n2) = {
                     let (a, b) = self.get_two_ints()?;
                     if b.is_zero() {
-                        return Err("divide by zero".into());
+                        return Err(DcError::DivideByZero);
                     }
                     a.div_rem(b, scale)
                 };
@@ -297,16 +293,16 @@ impl Dc4State {
                         match value {
                             DcValue::Num(n) => {
                                 if i == 1 && n.is_negative() {
-                                    return Err("negative exponent".into());
+                                    return Err(DcError::NegativeExponent);
                                 } else if i == 2 && n.is_zero() {
-                                    return Err("remainder by zero".into());
+                                    return Err(DcError::RemainderByZero);
                                 }
                             },
-                            DcValue::Str(_) => return Err("non-numeric value".into())
+                            DcValue::Str(_) => return Err(DcError::NonNumericValue)
                         }
                     }
                 } else {
-                    return Err("stack empty".into());
+                    return Err(DcError::StackEmpty);
                 }
 
                 let unwrap_int = |value| match value {
@@ -333,7 +329,7 @@ impl Dc4State {
             Action::Sqrt => match self.pop_top()? {
                 DcValue::Num(n) => {
                     if n.is_negative() {
-                        return Err("square root of negative number".into());
+                        return Err(DcError::SqrtNegative);
                     } else if n.is_zero() {
                         self.stack.push(DcValue::Num(n));
                     } else {
@@ -341,7 +337,7 @@ impl Dc4State {
                         self.stack.push(DcValue::Num(x));
                     }
                 }
-                DcValue::Str(_) => return Err("square root of nonnumeric attempted".into()),
+                DcValue::Str(_) => return Err(DcError::SqrtNonNumeric),
             }
             Action::ClearStack => self.stack.clear(),
             Action::Dup => if let Some(value) = self.stack.last().cloned() {
@@ -353,7 +349,7 @@ impl Dc4State {
                     let b = self.stack.len() - 2;
                     self.stack.swap(a, b);
                 } else {
-                    return Err("stack empty".into());
+                    return Err(DcError::StackEmpty);
                 }
             }
             Action::SetInputRadix => match self.pop_top()? {
@@ -363,12 +359,12 @@ impl Dc4State {
                             self.iradix = radix;
                         }
                         Some(_) | None => {
-                            return Err("input base must be a number between 2 and 16 (inclusive)".into());
+                            return Err(DcError::InputRadixInvalid);
                         }
                     }
                 }
                 DcValue::Str(_) => {
-                    return Err("input base must be a number between 2 and 16 (inclusive)".into());
+                    return Err(DcError::InputRadixInvalid);
                 }
             }
             Action::SetOutputRadix => match self.pop_top()? {
@@ -383,30 +379,30 @@ impl Dc4State {
                             self.oradix = radix;
                         }
                         Some(_) | None => {
-                            return Err("output base must be a number between 2 and 16 (inclusive)".into());
+                            return Err(DcError::OutputRadixInvalid);
                         }
                     }
                 }
                 DcValue::Str(_) => {
-                    return Err("output base must be a number between 2 and 16 (inclusive)".into());
+                    return Err(DcError::OutputRadixInvalid);
                 }
             }
             Action::SetPrecision => match self.pop_top()? {
                 DcValue::Num(n) => {
                     if n.is_negative() {
-                        return Err("scale must be a nonnegative number".into());
+                        return Err(DcError::ScaleInvalid);
                     }
                     match n.to_u32() {
                         Some(scale) => {
                             self.scale = scale;
                         }
                         None => {
-                            return Err("scale must fit into 32 bits".into());
+                            return Err(DcError::ScaleTooBig);
                         }
                     }
                 }
                 DcValue::Str(_) => {
-                    return Err("scale must be a nonnegative number".into());
+                    return Err(DcError::ScaleInvalid);
                 }
             }
             Action::LoadInputRadix => self.stack.push(DcValue::Num(BigReal::from(self.iradix))),
@@ -440,10 +436,10 @@ impl Dc4State {
                 DcValue::Num(n) if n.is_positive() => {
                     return n.to_u32()
                         .map(DcResult::QuitLevels)
-                        .ok_or_else(|| "quit levels out of range (must fit into 32 bits)".into());
+                        .ok_or(DcError::QuitTooBig);
                 }
                 DcValue::Num(_) | DcValue::Str(_) =>
-                    return Err("Q command requires a number >= 1".into()),
+                    return Err(DcError::QuitInvalid),
             }
             Action::NumDigits => match self.pop_top()? {
                 DcValue::Num(n) => self.stack.push(DcValue::Num(BigReal::from(n.num_digits()))),
@@ -458,7 +454,7 @@ impl Dc4State {
                 self.stack.push(DcValue::Num(BigReal::from(depth)));
             }
             Action::ShellExec => {
-                return Err("running shell commands is not supported".into());
+                return Err(DcError::ShellUnsupported);
             }
             Action::Version => {
                 let ver = env!("CARGO_PKG_VERSION_MAJOR").parse::<u64>().unwrap() << 24
@@ -469,10 +465,10 @@ impl Dc4State {
             }
             Action::Eof => (), // nothing to do
             Action::Unimplemented(c) => {
-                return Err(format!("{:?} (0{:o}) unimplemented", c as char, c).into());
+                return Err(DcError::Unimplemented(c));
             }
             Action::InputError(msg) => {
-                return Err(msg.into());
+                return Err(DcError::InputError(msg));
             }
         }
         Ok(DcResult::Continue)
@@ -497,19 +493,19 @@ impl Dc4State {
 
         let len = self.stack.len();
         if len < 2 {
-            return Err("stack empty".into());
+            return Err(DcError::StackEmpty);
         }
 
         if let DcValue::Num(ref n) = self.stack[len - 2] {
             a = n;
         } else {
-            return Err("non-numeric value".into());
+            return Err(DcError::NonNumericValue);
         }
 
         if let DcValue::Num(ref n) = self.stack[len - 1] {
             b = n;
         } else {
-            return Err("non-numeric value".into());
+            return Err(DcError::NonNumericValue);
         }
 
         Ok((a, b))
@@ -517,7 +513,7 @@ impl Dc4State {
 
     fn pop_top(&mut self) -> Result<DcValue, DcError> {
         self.stack.pop()
-            .ok_or_else(|| "stack empty".into())
+            .ok_or(DcError::StackEmpty)
     }
 
     fn binary_lambda<T, F>(&mut self, mut f: F) -> Result<T, DcError>
@@ -548,8 +544,7 @@ impl Dc4State {
             let text = match self.registers.get(register).value() {
                 Some(DcValue::Str(s)) => s.to_owned(),
                 Some(DcValue::Num(_)) => return Ok(DcResult::Continue),
-                None => return Err(
-                    format!("register '{}' (0{:o}) is empty", register as char, register).into()),
+                None => return Err(DcError::RegisterEmpty(register)),
             };
             Ok(DcResult::Macro(text))
         } else {
@@ -571,7 +566,7 @@ struct Number {
 }
 
 impl Number {
-    pub fn push(&mut self, c: u8, iradix: u32) -> Result<(), String> {
+    pub fn push(&mut self, c: u8, iradix: u32) -> Result<(), DcError> {
         match c {
             b'_' => { self.neg = true; }
             b'0' ..= b'9' | b'A' ..= b'F' => {
@@ -582,7 +577,7 @@ impl Number {
                 }
             }
             b'.' => { self.shift = Some(0); }
-            _ => return Err(format!("unexpected character in number: {:?}", c as char)),
+            _ => return Err(DcError::UnexpectedNumberChar(c)),
         }
         Ok(())
     }
