@@ -488,25 +488,22 @@ impl Dc4State {
     }
 
     fn get_two_ints(&self) -> Result<(&BigReal, &BigReal), DcError> {
-        let a: &BigReal;
-        let b: &BigReal;
-
         let len = self.stack.len();
         if len < 2 {
             return Err(DcError::StackEmpty);
         }
 
-        if let DcValue::Num(ref n) = self.stack[len - 2] {
-            a = n;
+        let a = if let DcValue::Num(ref n) = self.stack[len - 2] {
+            n
         } else {
             return Err(DcError::NonNumericValue);
-        }
+        };
 
-        if let DcValue::Num(ref n) = self.stack[len - 1] {
-            b = n;
+        let b = if let DcValue::Num(ref n) = self.stack[len - 1] {
+            n
         } else {
             return Err(DcError::NonNumericValue);
-        }
+        };
 
         Ok((a, b))
     }
