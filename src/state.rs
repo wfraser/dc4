@@ -461,7 +461,7 @@ impl Dc4State {
                         | env!("CARGO_PKG_VERSION_MINOR").parse::<u64>().unwrap() << 16
                         | env!("CARGO_PKG_VERSION_PATCH").parse::<u64>().unwrap();
                 self.stack.push(DcValue::Num(BigReal::from(ver)));
-                self.stack.push(DcValue::Str("dc4".to_owned().into_bytes()));
+                self.stack.push(DcValue::Str(b"dc4".to_vec()));
             }
             Action::Eof => (), // nothing to do
             Action::Unimplemented(c) => {
