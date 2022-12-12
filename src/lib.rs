@@ -40,7 +40,7 @@ impl Dc4 {
         // this.
         loop {
             match self.actions(&mut actions, w) {
-                Err(e) => self.state.error(w, format_args!("{}", e)),
+                Err(e) => self.state.error(w, format_args!("{e}")),
                 Ok(result) => return result,
             }
         }
@@ -142,14 +142,14 @@ impl std::fmt::Display for DcError {
         match self {
             ArrayIndexInvalid => f.write_str("array index must be a nonnegative integer"),
             DivideByZero => f.write_str("divide by zero"),
-            InputError(e) => write!(f, "error reading input: {}", e),
+            InputError(e) => write!(f, "error reading input: {e}"),
             InputRadixInvalid => f.write_str("input base must be a number between 2 and 16 (inclusive)"),
             NegativeExponent => f.write_str("negative exponent"),
             NonNumericValue => f.write_str("non-numeric value"),
             OutputRadixInvalid => f.write_str("output base must be a number between 2 and 16 (inclusive)"),
             QuitInvalid => f.write_str("Q command requires a number >= 1"),
             QuitTooBig => f.write_str("quit levels out of range (must fit into 32 bits)"),
-            RegisterEmpty(r) => write!(f, "register '{}' (0{:o}) is empty", *r as char, r),
+            RegisterEmpty(r) => write!(f, "register '{}' (0{r:o}) is empty", *r as char),
             RemainderByZero => f.write_str("remainder by zero"),
             ScaleInvalid => f.write_str("scale must be a nonnegative integer"),
             ScaleTooBig => f.write_str("scale must fit into 32 bits"),
@@ -157,9 +157,9 @@ impl std::fmt::Display for DcError {
             SqrtNegative => f.write_str("square root of negative number"),
             SqrtNonNumeric => f.write_str("square root of nonnumeric attempted"),
             StackEmpty => f.write_str("stack empty"),
-            StackRegisterEmpty(r) => write!(f, "stack register '{}' (0{:o}) is empty", *r as char, r),
+            StackRegisterEmpty(r) => write!(f, "stack register '{}' (0{r:o}) is empty", *r as char),
             UnexpectedNumberChar(c) => write!(f, "unexpected character in number: {:?}", *c as char),
-            Unimplemented(c) => write!(f, "{:?} (0{:o}) unimplemented", *c as char, c),
+            Unimplemented(c) => write!(f, "{:?} (0{c:o}) unimplemented", *c as char),
         }
     }
 }

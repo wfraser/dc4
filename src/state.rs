@@ -100,7 +100,7 @@ impl Dc4State {
                         Ok(DcResult::Terminate(n)) => quit_handler!(n, DcResult::Terminate),
                         Ok(DcResult::Macro(_)) => unreachable!(),
                         Err(msg) => {
-                            self.error(w, format_args!("{}", msg));
+                            self.error(w, format_args!("{msg}"));
                         }
                     }
                 }
@@ -427,7 +427,7 @@ impl Dc4State {
                 let stdin = io::stdin();
                 let mut handle = stdin.lock();
                 if let Err(e) = handle.read_until(b'\n', &mut line) {
-                    writeln!(w, "warning: error reading input: {}", e).unwrap();
+                    writeln!(w, "warning: error reading input: {e}").unwrap();
                 }
                 return Ok(DcResult::Macro(line));
             }
