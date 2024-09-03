@@ -125,7 +125,7 @@ impl ParseState {
     /// If `input` is None after this call, it means the character was consumed. If not, it should
     /// be re-issued again.
     pub fn next(self, input: &mut Option<u8>) -> (Self, Option<Action>) {
-        let c = if let Some(c) = input.take() { c } else {
+        let Some(c) = input.take() else {
             // We are at EOF. We need to complete whatever we're in the middle of, or return
             // Action::Eof to positively indicate that we're done.
             let action: Action = match self {
