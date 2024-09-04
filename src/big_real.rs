@@ -495,126 +495,131 @@ impl<'a, 'b> Mul<&'b BigReal> for &'a BigReal {
     }
 }
 
-#[test]
-fn test_new() {
-    let n = BigReal::new(1234, 5);
-    assert_eq!(n.value, BigInt::from(1234));
-    assert_eq!(n.shift, 5);
-}
+#[cfg(test)]
+mod test {
+    use super::*;
 
-#[test]
-fn test_eq() {
-    let a = BigReal::new(1, 2);
-    let b = BigReal::new(2, 2);
-    assert!(!(a == b));
-    assert!(a != b);
-}
+    #[test]
+    fn test_new() {
+        let n = BigReal::new(1234, 5);
+        assert_eq!(n.value, BigInt::from(1234));
+        assert_eq!(n.shift, 5);
+    }
 
-#[test]
-#[allow(clippy::neg_cmp_op_on_partial_ord)] // checking these ops on purpose
-fn test_cmp() {
-    let a = BigReal::new(1, 0); // 1
-    let b = BigReal::new(1, 3); // .001
-    assert!(a > b);
-    assert!(a >= b);
-    assert!(!(a < b));
-    assert!(!(a <= b));
-}
+    #[test]
+    fn test_eq() {
+        let a = BigReal::new(1, 2);
+        let b = BigReal::new(2, 2);
+        assert!(!(a == b));
+        assert!(a != b);
+    }
 
-#[test]
-fn test_add() {
-    let a = BigReal::new(1234, 3);
-    let b = BigReal::new(42, 0);
-    let c = a + b;
-    assert_eq!(c, BigReal::new(43234, 3));
-}
+    #[test]
+    #[allow(clippy::neg_cmp_op_on_partial_ord)] // checking these ops on purpose
+    fn test_cmp() {
+        let a = BigReal::new(1, 0); // 1
+        let b = BigReal::new(1, 3); // .001
+        assert!(a > b);
+        assert!(a >= b);
+        assert!(!(a < b));
+        assert!(!(a <= b));
+    }
 
-#[test]
-fn test_sub() {
-    let a = BigReal::new(1234, 3);
-    let b = BigReal::new(42, 0);
-    let c = a - b;
-    assert_eq!(c, BigReal::new(-40766, 3));
-}
+    #[test]
+    fn test_add() {
+        let a = BigReal::new(1234, 3);
+        let b = BigReal::new(42, 0);
+        let c = a + b;
+        assert_eq!(c, BigReal::new(43234, 3));
+    }
 
-#[test]
-fn test_mul1() {
-    let a = BigReal::new(25, 0);
-    let b = BigReal::new(4, 0);
-    let c = a * b;
-    assert_eq!(c, BigReal::new(100, 0));
-}
+    #[test]
+    fn test_sub() {
+        let a = BigReal::new(1234, 3);
+        let b = BigReal::new(42, 0);
+        let c = a - b;
+        assert_eq!(c, BigReal::new(-40766, 3));
+    }
 
-#[test]
-fn test_mul2() {
-    let a = BigReal::new(25, 1);
-    let b = BigReal::new(4, 2);
-    let c = a * b;
-    assert_eq!(c, BigReal::new(100, 3));
-}
+    #[test]
+    fn test_mul1() {
+        let a = BigReal::new(25, 0);
+        let b = BigReal::new(4, 0);
+        let c = a * b;
+        assert_eq!(c, BigReal::new(100, 0));
+    }
 
-#[test]
-fn test_div1() {
-    let a = BigReal::new(50, 0);            //  50.
-    let b = BigReal::new(55, 3);            //   0.055
-    let c = a.div(&b, 0);
-    assert_eq!(c, BigReal::new(909, 0));    // 909.
-}
+    #[test]
+    fn test_mul2() {
+        let a = BigReal::new(25, 1);
+        let b = BigReal::new(4, 2);
+        let c = a * b;
+        assert_eq!(c, BigReal::new(100, 3));
+    }
 
-#[test]
-fn test_div2() {
-    let a = BigReal::new(505, 1);           //  50.5
-    let b = BigReal::new(55, 3);            //   0.055
-    let c = a.div(&b, 1);
-    assert_eq!(c, BigReal::new(9181, 1));   // 918.1
-}
+    #[test]
+    fn test_div1() {
+        let a = BigReal::new(50, 0);            //  50.
+        let b = BigReal::new(55, 3);            //   0.055
+        let c = a.div(&b, 0);
+        assert_eq!(c, BigReal::new(909, 0));    // 909.
+    }
 
-#[test]
-fn test_rem1() {
-    let a = BigReal::new(505, 1);           // 50.5
-    let b = BigReal::new(55, 3);            //  0.055
-    let c = a.rem(&b, 1);
-    assert_eq!(c, BigReal::new(45, 4));     //   .0045
-}
+    #[test]
+    fn test_div2() {
+        let a = BigReal::new(505, 1);           //  50.5
+        let b = BigReal::new(55, 3);            //   0.055
+        let c = a.div(&b, 1);
+        assert_eq!(c, BigReal::new(9181, 1));   // 918.1
+    }
 
-#[test]
-fn test_rem2() {
-    let a = BigReal::new(1_654_043_318, 6);     // 1654.043318
-    let b = BigReal::new(12, 0);                //   12.
-    let c = a.rem(&b, 0);
-    assert_eq!(c, BigReal::new(10_043_318, 6)); //   10.043318
-}
+    #[test]
+    fn test_rem1() {
+        let a = BigReal::new(505, 1);           // 50.5
+        let b = BigReal::new(55, 3);            //  0.055
+        let c = a.rem(&b, 1);
+        assert_eq!(c, BigReal::new(45, 4));     //   .0045
+    }
 
-#[test]
-fn test_str1() {
-    let a = BigReal::new(1234, 3);  // 1.234
-    assert_eq!(a.to_str_radix(10), "1.234");
-    assert_eq!(a.to_str_radix(16), "1.3be");
-    assert_eq!(a.to_str_radix(2), "1.0011101111");
-}
+    #[test]
+    fn test_rem2() {
+        let a = BigReal::new(1_654_043_318, 6);     // 1654.043318
+        let b = BigReal::new(12, 0);                //   12.
+        let c = a.rem(&b, 0);
+        assert_eq!(c, BigReal::new(10_043_318, 6)); //   10.043318
+    }
 
-#[test]
-fn test_str2() {
-    let a = BigReal::new(1100, 3); // 1.100
-    assert_eq!(a.to_str_radix(10), "1.100");
-    assert_eq!(a.to_str_radix(16), "1.199");
-    assert_eq!(a.to_str_radix(2), "1.0001100110");
-}
+    #[test]
+    fn test_str1() {
+        let a = BigReal::new(1234, 3);  // 1.234
+        assert_eq!(a.to_str_radix(10), "1.234");
+        assert_eq!(a.to_str_radix(16), "1.3be");
+        assert_eq!(a.to_str_radix(2), "1.0011101111");
+    }
 
-#[test]
-fn test_simplify() {
-    let a = BigReal::new(1100, 3); // 1.100
-    let mut b = a.clone();
-    b.simplify();
-    assert!(a == b);
-    assert_eq!(b.shift, 1);
-    assert_eq!(b.value.to_str_radix(10), "11");
-}
+    #[test]
+    fn test_str2() {
+        let a = BigReal::new(1100, 3); // 1.100
+        assert_eq!(a.to_str_radix(10), "1.100");
+        assert_eq!(a.to_str_radix(16), "1.199");
+        assert_eq!(a.to_str_radix(2), "1.0001100110");
+    }
 
-#[test]
-fn test_pow_frac() {
-    let base = BigReal::new(2, 0); // 2
-    let exp  = BigReal::new(5, 1); // 0.5
-    let x = base.pow(&exp, 2);
-    assert_eq!(x.to_str_radix(10), "1");
+    #[test]
+    fn test_simplify() {
+        let a = BigReal::new(1100, 3); // 1.100
+        let mut b = a.clone();
+        b.simplify();
+        assert!(a == b);
+        assert_eq!(b.shift, 1);
+        assert_eq!(b.value.to_str_radix(10), "11");
+    }
+
+    #[test]
+    fn test_pow_frac() {
+        let base = BigReal::new(2, 0); // 2
+        let exp  = BigReal::new(5, 1); // 0.5
+        let x = base.pow(&exp, 2);
+        assert_eq!(x.to_str_radix(10), "1");
+    }
 }

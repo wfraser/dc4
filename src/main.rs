@@ -189,21 +189,26 @@ fn main() {
     }
 }
 
-#[test]
-fn test_parseargs() {
-    let args: Vec<&str> = vec!["-e", "e1", "file1", "--expression=e2", "file2", "--file=file3", "-", "file4"];
-    let result = parse_arguments(&args).unwrap();
+#[cfg(test)]
+mod test {
+    use super::*;
 
-    // first, the options:
-    assert_eq!(result[0], DcInput::Expression("e1"));
-    assert_eq!(result[1], DcInput::Expression("e2"));
-    assert_eq!(result[2], DcInput::File("file3"));
+    #[test]
+    fn test_parseargs() {
+        let args: Vec<&str> = vec!["-e", "e1", "file1", "--expression=e2", "file2", "--file=file3", "-", "file4"];
+        let result = parse_arguments(&args).unwrap();
 
-    // then the non-option inputs:
-    assert_eq!(result[3], DcInput::File("file1"));
-    assert_eq!(result[4], DcInput::File("file2"));
-    assert_eq!(result[5], DcInput::Stdin);
-    assert_eq!(result[6], DcInput::File("file4"));
+        // first, the options:
+        assert_eq!(result[0], DcInput::Expression("e1"));
+        assert_eq!(result[1], DcInput::Expression("e2"));
+        assert_eq!(result[2], DcInput::File("file3"));
 
-    assert_eq!(result.len(), 7);
+        // then the non-option inputs:
+        assert_eq!(result[3], DcInput::File("file1"));
+        assert_eq!(result[4], DcInput::File("file2"));
+        assert_eq!(result[5], DcInput::Stdin);
+        assert_eq!(result[6], DcInput::File("file4"));
+
+        assert_eq!(result.len(), 7);
+    }
 }
