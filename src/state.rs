@@ -1,7 +1,7 @@
 //
 // dc4 main program state
 //
-// Copyright (c) 2015-2021 by William R. Fraser
+// Copyright (c) 2015-2022 by William R. Fraser
 //
 
 use std::fmt;

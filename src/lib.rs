@@ -1,7 +1,7 @@
 //
 // dc4 :: A Unix dc(1) implementation in Rust
 //
-// Copyright (c) 2015-2021 by William R. Fraser
+// Copyright (c) 2015-2022 by William R. Fraser
 //
 
 #![deny(rust_2018_idioms)]

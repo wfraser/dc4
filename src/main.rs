@@ -4,7 +4,7 @@
 // This is the program entry point.
 // It parses command line arguments and invokes the dc4 library.
 //
-// Copyright (c) 2015-2021 by William R. Fraser
+// Copyright (c) 2015-2024 by William R. Fraser
 //
 
 #![deny(rust_2018_idioms)]
@@ -26,7 +26,7 @@ fn progname() -> String {
 
 fn print_version() {
     println!("dc4 version {}", env!("CARGO_PKG_VERSION"));
-    println!("Copyright (c) 2015-2022 by William R. Fraser");
+    println!("Copyright (c) 2015-2024 by William R. Fraser");
 }
 
 fn print_usage() {

@@ -1,7 +1,7 @@
 //
 // dc4 input parser
 //
-// Copyright (c) 2019-2020 by William R. Fraser
+// Copyright (c) 2019-2024 by William R. Fraser
 //
 
 pub struct Parser {
