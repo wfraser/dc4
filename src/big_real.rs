@@ -449,7 +449,7 @@ macro_rules! forward_all_binop_to_ref_ref {
 
 forward_all_binop_to_ref_ref!(impl Add for BigReal, add);
 
-impl<'a, 'b> Add<&'b BigReal> for &'a BigReal {
+impl Add<&BigReal> for &BigReal {
     type Output = BigReal;
 
     fn add(self, rhs: &BigReal) -> BigReal {
@@ -471,7 +471,7 @@ impl<'a, 'b> Add<&'b BigReal> for &'a BigReal {
 
 forward_all_binop_to_ref_ref!(impl Sub for BigReal, sub);
 
-impl<'a, 'b> Sub<&'b BigReal> for &'a BigReal {
+impl Sub<&BigReal> for &BigReal {
     type Output = BigReal;
 
     #[inline]
@@ -482,7 +482,7 @@ impl<'a, 'b> Sub<&'b BigReal> for &'a BigReal {
 
 forward_all_binop_to_ref_ref!(impl Mul for BigReal, mul);
 
-impl<'a, 'b> Mul<&'b BigReal> for &'a BigReal {
+impl Mul<&BigReal> for &BigReal {
     type Output = BigReal;
 
     fn mul(self, rhs: &BigReal) -> BigReal {

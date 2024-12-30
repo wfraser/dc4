@@ -103,11 +103,11 @@ fn run(r: impl BufRead, mut w: impl Write) -> Result<(), Error> {
         });
 
     if opts.oradix != 10 {
-        dc.push_number(&opts.oradix.to_string().into_bytes())?;
+        dc.push_number(opts.oradix.to_string().into_bytes())?;
         action(&mut dc, Action::SetOutputRadix, &mut w)?;
     }
     if opts.iradix != 10 {
-        dc.push_number(&opts.iradix.to_string().into_bytes())?;
+        dc.push_number(opts.iradix.to_string().into_bytes())?;
         action(&mut dc, Action::SetInputRadix, &mut w)?;
     }
 
