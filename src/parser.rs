@@ -1,7 +1,7 @@
 //
 // dc4 input parser
 //
-// Copyright (c) 2019-2024 by William R. Fraser
+// Copyright (c) 2019-2025 by William R. Fraser
 //
 
 pub struct Parser {
@@ -106,7 +106,7 @@ enum ParseState {
     Start,
     Comment,
     Number { decimal: bool },
-    String { level: usize },
+    String { level: usize, bs: bool },
     ShellExec,
     Bang,
     TwoChar(RegisterAction),
@@ -187,7 +187,7 @@ impl ParseState {
                 b'O' => (self, Some(Action::LoadOutputRadix)),
                 b'K' => (self, Some(Action::LoadPrecision)),
 
-                b'[' => (ParseState::String { level: 0 }, None),
+                b'[' => (ParseState::String { level: 0, bs: false }, None),
                 b'a' => (self, Some(Action::Asciify)),
                 b'x' => (self, Some(Action::ExecuteMacro)),
 
@@ -232,17 +232,18 @@ impl ParseState {
                     (ParseState::Start, Some(Action::PushNumber))
                 }
             }
-            ParseState::String { level } => match c {
-                b'[' => {
-                    (ParseState::String { level: level + 1 }, Some(Action::StringChar(c)))
-                }
-                b']' if level > 0 => {
-                    (ParseState::String { level: level - 1 }, Some(Action::StringChar(c)))
-                }
-                b']' if level == 0 => (ParseState::Start, Some(Action::PushString)),
-                _ => {
-                    (ParseState::String { level }, Some(Action::StringChar(c)))
-                }
+            ParseState::String { level, bs } => match c {
+                b'\\' if !bs => (ParseState::String { level, bs: true }, None),
+                b'[' if !bs => (
+                    ParseState::String { level: level + 1, bs: false },
+                    Some(Action::StringChar(c))
+                ),
+                b']' if !bs && level > 0 => (
+                    ParseState::String { level: level - 1, bs: false },
+                    Some(Action::StringChar(c))
+                ),
+                b']' if !bs && level == 0 => (ParseState::Start, Some(Action::PushString)),
+                _ => (ParseState::String { level, bs: false }, Some(Action::StringChar(c))),
             }
             ParseState::ShellExec => match c {
                 b'\n' => (ParseState::Start, Some(Action::ShellExec)),

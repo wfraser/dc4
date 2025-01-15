@@ -488,3 +488,11 @@ fn test_large_obase() {
     assert_eq!(dc4_run(b"_123456.789 101of"), "- 012 010 034.079 069\n");
     assert_eq!(dc4_run(b"0.789 101of"), ".079 069\n");
 }
+
+#[test]
+fn test_string_escaped_brackets() {
+    assert_eq!(dc4_run(b"[foo]f"), "foo\n");
+    assert_eq!(dc4_run(b"[\\]foo]f"), "]foo\n");
+    assert_eq!(dc4_run(b"[\\[foo]f"), "[foo\n");
+    assert_eq!(dc4_run(b"[\\\\foo]f"), "\\foo\n");
+}
