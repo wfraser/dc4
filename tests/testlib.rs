@@ -470,3 +470,8 @@ fn test_zero_print() {
     // but the scale didn't actually change:
     assert_eq!(dc4_run(b"12.345 .345- 12- .1+ f"), ".100\n");
 }
+
+#[test]
+fn test_obase_neg_frac() {
+    assert_eq!(dc4_run(b"_1.5 16of"), "-1.8\n");
+}

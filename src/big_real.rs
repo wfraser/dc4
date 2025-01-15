@@ -111,7 +111,7 @@ impl BigReal {
 
             // start with the part shifted over one place value (because otherwise the first
             // iteration would always yield zero).
-            let mut part = (&self.value - whole.change_shift(self.shift).value).abs() * radix;
+            let mut part = (&self.value.abs() - whole.change_shift(self.shift).value) * radix;
 
             // These control when we stop the iteration.
             // When the current place value (in whatever radix) is greater than the amount of the
