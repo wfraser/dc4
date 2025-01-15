@@ -368,14 +368,9 @@ impl Dc4State {
                 }
             }
             Action::SetOutputRadix => match self.pop_top()? {
-                // BigInt::to_str_radix actually supports radix up to 36, but we restrict it to 16
-                // here because those are the only values that will round-trip (because only
-                // 'A'...'F' will be interpreted as numbers.
-                // On the other hand, actual dc supports unlimited output radix, but after 16 it
-                // starts to use a different format.
                 DcValue::Num(n) => {
                     match n.to_u32() {
-                        Some(radix) if (2..=16).contains(&radix) => {
+                        Some(radix) if radix > 1 => {
                             self.oradix = radix;
                         }
                         Some(_) | None => {

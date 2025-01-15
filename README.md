@@ -34,8 +34,6 @@ linked instead of dynamically linked.
 Some behaviors have been intentionally changed from GNU dc:
 
 - running shell commands with the '!' command is not supported
-- the output radix ('o') is limited to between 2 and 16, inclusive. GNU dc
-  allows >16, for which it uses a different, incompatible, output format.
 
 Any other differences (other than cases where GNU dc crashes and dc4 does not)
 should be considered a bug.

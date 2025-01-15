@@ -475,3 +475,16 @@ fn test_zero_print() {
 fn test_obase_neg_frac() {
     assert_eq!(dc4_run(b"_1.5 16of"), "-1.8\n");
 }
+
+#[test]
+fn test_large_obase() {
+    assert_eq!(dc4_run(b"1 100of"), " 01\n");
+    assert_eq!(dc4_run(b"1 101of"), " 001\n");
+    assert_eq!(dc4_run(b"1024 64of"), " 16 00\n");
+    assert_eq!(dc4_run(b"5120 64of"), " 01 16 00\n");
+    assert_eq!(dc4_run(b"123456 101of"), " 012 010 034\n");
+    assert_eq!(dc4_run(b"123456.789 101of"), " 012 010 034.079 069\n");
+    assert_eq!(dc4_run(b"_123456.789 16of"), "-1E240.C9F\n");
+    assert_eq!(dc4_run(b"_123456.789 101of"), "- 012 010 034.079 069\n");
+    assert_eq!(dc4_run(b"0.789 101of"), ".079 069\n");
+}

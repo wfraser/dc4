@@ -1,7 +1,7 @@
 //
 // BigReal :: An arbitrary-precision real number class.
 //
-// Copyright (c) 2016-2024 by William R. Fraser
+// Copyright (c) 2016-2025 by William R. Fraser
 //
 
 use std::cmp::{max, Ordering};
@@ -65,9 +65,8 @@ impl BigReal {
 
     pub fn to_str_radix(&self, radix: u32) -> String {
         if self.shift == 0 {
-            self.value.to_str_radix(radix)
-        }
-        else if radix == 10 {
+            Self::int_str_radix(&self.value, radix)
+        } else if radix == 10 {
             // For decimal, it's fine to just put the dot in the right place.
             let mut output = if self.is_negative() {
                 "-".to_string()
@@ -91,8 +90,7 @@ impl BigReal {
                 output.push_str(&digits[decimal_pos..]);
             }
             output
-        }
-        else {
+        } else {
             // For non-decimal, the whole part is fine, but the string representation of the
             // fractional part needs to be computed manually using long division.
 
@@ -105,7 +103,7 @@ impl BigReal {
             let whole = self.change_shift(0).abs();
 
             if !whole.value.is_zero() { // suppress leading zero
-                string_result.push_str(&whole.value.to_str_radix(radix));
+                string_result.push_str(&Self::int_str_radix(&whole.value, radix));
             }
             string_result.push('.');
 
@@ -120,10 +118,15 @@ impl BigReal {
             let mut place = BigInt::from(radix);
 
             loop {
-                let div_rem = part.div_rem(&max_place);
+                let (div, rem) = part.div_rem(&max_place);
 
-                string_result.push_str(&div_rem.0.to_str_radix(radix));
-                part = div_rem.1 * radix;
+                let s = Self::int_str_radix(&div, radix);
+                if radix > 16 && string_result.ends_with('.') {
+                    string_result.push_str(&s[1..]);
+                } else {
+                    string_result.push_str(&s);
+                }
+                part = rem * radix;
 
                 // check if we've reached the appropriate precision
                 if place >= max_place {
@@ -134,6 +137,43 @@ impl BigReal {
 
             string_result
         }
+    }
+
+    fn int_str_radix(n: &BigInt, radix: u32) -> String {
+        if radix <= 16 {
+            return n.to_str_radix(radix);
+        }
+
+        // For radix >16, it prints each place as a base-10 number, separated by spaces.
+        // For radix 100 each place gets padded to 2 digits, radix 101 gets 3 digits, etc.
+        let digit_width = (radix - 1).ilog10() as usize + 1;
+
+        let mut power = BigInt::from(radix);
+        if n <= &power {
+            // Shortcut: if we're already less than the radix, just base-10 and pad it and be done.
+            return format!(" {:0>digit_width$}", n.to_str_radix(10));
+        }
+
+        // find the power of radix to start with
+        let mut powers = vec![BigInt::one()];
+        while &power < n {
+            powers.push(power.clone());
+            power *= radix;
+        }
+
+        let mut out = String::new();
+        let mut n = n.to_owned();
+        while let Some(power) = powers.pop() {
+            let (div, rem) = n.div_rem(&power);
+            let s = div.to_str_radix(10);
+            out.push(' ');
+            for _ in s.len() .. digit_width {
+                out.push('0');
+            }
+            out.push_str(&s);
+            n = rem;
+        }
+        out
     }
 
     pub fn pow(&self, exponent: &BigReal, scale: u32) -> BigReal {
