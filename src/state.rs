@@ -159,7 +159,7 @@ impl Dc4State {
                     }
                 }
                 RegisterAction::Comparison(cmp) => {
-                    return self.cond_macro(register, cmp);
+                    return self.cond_macro(register, None, cmp);
                 }
                 RegisterAction::StoreRegArray => {
                     let maybe_key = match self.pop_top()? {
@@ -190,6 +190,9 @@ impl Dc4State {
                     }
                     _ => return Err(DcError::ArrayIndexInvalid),
                 }
+            }
+            Action::IfElse(cmp, if_reg, else_reg) => {
+                return self.cond_macro(if_reg, Some(else_reg), cmp);
             }
             Action::Print => {
                 match self.stack.last() {
@@ -514,7 +517,7 @@ impl Dc4State {
         Ok(())
     }
 
-    fn cond_macro(&mut self, register: u8, cmp: Comparison)
+    fn cond_macro(&mut self, register: u8, else_register: Option<u8>, cmp: Comparison)
         -> Result<DcResult, DcError>
     {
         let cond = self.binary_lambda(|a, b| Ok(match cmp {
@@ -526,14 +529,18 @@ impl Dc4State {
             Comparison::Ne => b != a,
         }))?;
 
-        if !cond {
+        let chosen = if cond {
+            register
+        } else if let Some(r) = else_register {
+            r
+        } else {
             return Ok(DcResult::Continue);
-        }
+        };
 
-        let text = match self.registers.get(register).value() {
+        let text = match self.registers.get(chosen).value() {
             Some(DcValue::Str(s)) => s.to_owned(),
             Some(DcValue::Num(_)) => return Ok(DcResult::Continue),
-            None => return Err(DcError::RegisterEmpty(register)),
+            None => return Err(DcError::RegisterEmpty(chosen)),
         };
 
         Ok(DcResult::Macro(text))
