@@ -20,7 +20,7 @@ impl Default for Parser {
 pub enum Action {
     // Where possible, keep things ordered like in the GNU dc man page.
 
-    // Numbers and strings have eac been split into two operations, to avoid having any buffering
+    // Numbers and strings have each been split into two operations, to avoid having any buffering
     // in the parser. The expectation is that these Actions will not be interleaved with any others.
     // Also it can be assumed that any sequence of number character actions will always be valid.
     NumberChar(u8),
@@ -86,17 +86,22 @@ pub enum Action {
 }
 
 #[derive(Debug)]
+pub enum Comparison {
+    Gt, // '>'
+    Le, // '!>'
+    Lt, // '<'
+    Ge, // '!<'
+    Eq, // '='
+    Ne, // '!='
+}
+
+#[derive(Debug)]
 pub enum RegisterAction {
     Store,              // 's'
     Load,               // 'l'
     PushRegStack,       // 'S'
     PopRegStack,        // 'L'
-    Gt,                 // '>'
-    Le,                 // '!>'
-    Lt,                 // '<'
-    Ge,                 // '!<'
-    Eq,                 // '='
-    Ne,                 // '!='
+    Comparison(Comparison),
     StoreRegArray,      // ':'
     LoadRegArray,       // ';'
 }
@@ -109,7 +114,7 @@ enum ParseState {
     String { level: usize, bs: bool },
     ShellExec,
     Bang,
-    TwoChar(RegisterAction),
+    Register(RegisterAction),
 }
 
 impl Parser {
@@ -140,8 +145,8 @@ impl ParseState {
                     // Note: we push the string even if it is incomplete (unbalanced brackets).
                     Action::PushString,
                 ParseState::ShellExec => Action::ShellExec,
-                ParseState::TwoChar(_register_action) =>
-                    Action::InputError(std::io::ErrorKind::UnexpectedEof.into())
+                ParseState::Register(_register_action) =>
+                    Action::InputError(std::io::ErrorKind::UnexpectedEof.into()),
             };
             return (ParseState::Start, Some(action));
         };
@@ -175,10 +180,10 @@ impl ParseState {
                 b'd' => (self, Some(Action::Dup)),
                 b'r' => (self, Some(Action::Swap)),
 
-                b's' => (ParseState::TwoChar(RegisterAction::Store), None),
-                b'l' => (ParseState::TwoChar(RegisterAction::Load), None),
-                b'S' => (ParseState::TwoChar(RegisterAction::PushRegStack), None),
-                b'L' => (ParseState::TwoChar(RegisterAction::PopRegStack), None),
+                b's' => (ParseState::Register(RegisterAction::Store), None),
+                b'l' => (ParseState::Register(RegisterAction::Load), None),
+                b'S' => (ParseState::Register(RegisterAction::PushRegStack), None),
+                b'L' => (ParseState::Register(RegisterAction::PopRegStack), None),
 
                 b'i' => (self, Some(Action::SetInputRadix)),
                 b'o' => (self, Some(Action::SetOutputRadix)),
@@ -192,9 +197,9 @@ impl ParseState {
                 b'x' => (self, Some(Action::ExecuteMacro)),
 
                 b'!' => (ParseState::Bang, None),
-                b'>' => (ParseState::TwoChar(RegisterAction::Gt), None),
-                b'<' => (ParseState::TwoChar(RegisterAction::Lt), None),
-                b'=' => (ParseState::TwoChar(RegisterAction::Eq), None),
+                b'>' => (ParseState::Register(RegisterAction::Comparison(Comparison::Gt)), None),
+                b'<' => (ParseState::Register(RegisterAction::Comparison(Comparison::Lt)), None),
+                b'=' => (ParseState::Register(RegisterAction::Comparison(Comparison::Eq)), None),
                 b'?' => (self, Some(Action::Input)),
                 b'q' => (self, Some(Action::Quit)),
                 b'Q' => (self, Some(Action::QuitLevels)),
@@ -204,8 +209,8 @@ impl ParseState {
                 b'z' => (self, Some(Action::StackDepth)),
 
                 b'#' => (ParseState::Comment, None),
-                b':' => (ParseState::TwoChar(RegisterAction::StoreRegArray), None),
-                b';' => (ParseState::TwoChar(RegisterAction::LoadRegArray), None),
+                b':' => (ParseState::Register(RegisterAction::StoreRegArray), None),
+                b';' => (ParseState::Register(RegisterAction::LoadRegArray), None),
 
                 b'@' => (self, Some(Action::Version)),
 
@@ -250,12 +255,12 @@ impl ParseState {
                 _ => (ParseState::ShellExec, None),
             }
             ParseState::Bang => match c {
-                b'>' => (ParseState::TwoChar(RegisterAction::Le), None),
-                b'<' => (ParseState::TwoChar(RegisterAction::Ge), None),
-                b'=' => (ParseState::TwoChar(RegisterAction::Ne), None),
+                b'>' => (ParseState::Register(RegisterAction::Comparison(Comparison::Le)), None),
+                b'<' => (ParseState::Register(RegisterAction::Comparison(Comparison::Ge)), None),
+                b'=' => (ParseState::Register(RegisterAction::Comparison(Comparison::Ne)), None),
                 _ => (ParseState::ShellExec, None),
             }
-            ParseState::TwoChar(action) => (ParseState::Start, Some(Action::Register(action, c))),
+            ParseState::Register(action) => (ParseState::Start, Some(Action::Register(action, c))),
         }
     }
 }

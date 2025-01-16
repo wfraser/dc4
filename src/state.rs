@@ -1,7 +1,7 @@
 //
 // dc4 main program state
 //
-// Copyright (c) 2015-2022 by William R. Fraser
+// Copyright (c) 2015-2025 by William R. Fraser
 //
 
 use std::fmt;
@@ -11,7 +11,7 @@ use num_traits::{ToPrimitive, Zero};
 
 use crate::big_real::BigReal;
 use crate::dcregisters::DcRegisters;
-use crate::parser::{Action, RegisterAction, Parser};
+use crate::parser::{Action, Comparison, Parser, RegisterAction};
 use crate::{DcValue, DcResult, DcError};
 
 pub struct Dc4State {
@@ -170,12 +170,9 @@ impl Dc4State {
                         None => return Err(DcError::StackRegisterEmpty(register)),
                     }
                 }
-                RegisterAction::Gt => return self.cond_macro(register, |a,b| b>a),
-                RegisterAction::Le => return self.cond_macro(register, |a,b| b<=a),
-                RegisterAction::Lt => return self.cond_macro(register, |a,b| b<a),
-                RegisterAction::Ge => return self.cond_macro(register, |a,b| b>=a),
-                RegisterAction::Eq => return self.cond_macro(register, |a,b| b==a),
-                RegisterAction::Ne => return self.cond_macro(register, |a,b| b!=a),
+                RegisterAction::Comparison(cmp) => {
+                    return self.cond_macro(register, cmp);
+                }
                 RegisterAction::StoreRegArray => {
                     let maybe_key = match self.pop_top()? {
                         DcValue::Num(n) => {
@@ -529,19 +526,29 @@ impl Dc4State {
         Ok(())
     }
 
-    fn cond_macro<F>(&mut self, register: u8, f: F) -> Result<DcResult, DcError>
-        where F: Fn(&BigReal, &BigReal) -> bool
+    fn cond_macro(&mut self, register: u8, cmp: Comparison)
+        -> Result<DcResult, DcError>
     {
-        if self.binary_lambda(|a, b| Ok(f(a, b)))? {
-            let text = match self.registers.get(register).value() {
-                Some(DcValue::Str(s)) => s.to_owned(),
-                Some(DcValue::Num(_)) => return Ok(DcResult::Continue),
-                None => return Err(DcError::RegisterEmpty(register)),
-            };
-            Ok(DcResult::Macro(text))
-        } else {
-            Ok(DcResult::Continue)
+        let cond = self.binary_lambda(|a, b| Ok(match cmp {
+            Comparison::Gt => b > a,
+            Comparison::Le => b <= a,
+            Comparison::Lt => b < a,
+            Comparison::Ge => b >= a,
+            Comparison::Eq => b == a,
+            Comparison::Ne => b != a,
+        }))?;
+
+        if !cond {
+            return Ok(DcResult::Continue);
         }
+
+        let text = match self.registers.get(register).value() {
+            Some(DcValue::Str(s)) => s.to_owned(),
+            Some(DcValue::Num(_)) => return Ok(DcResult::Continue),
+            None => return Err(DcError::RegisterEmpty(register)),
+        };
+
+        Ok(DcResult::Macro(text))
     }
 
     pub(crate) fn error(&self, w: &mut impl Write, args: fmt::Arguments<'_>) {
