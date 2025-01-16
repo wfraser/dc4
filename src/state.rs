@@ -7,7 +7,7 @@
 use std::fmt;
 use std::io::{self, BufRead, Write};
 use num_bigint::BigInt;
-use num_traits::{ToPrimitive, Zero};
+use num_traits::{One, ToPrimitive, Zero};
 
 use crate::big_real::BigReal;
 use crate::dcregisters::DcRegisters;
@@ -202,9 +202,6 @@ impl Dc4State {
                     }
                     _ => return Err(DcError::ArrayIndexInvalid),
                 }
-            }
-            Action::IfElse(cmp, if_reg, else_reg) => {
-                return self.cond_macro(if_reg, Some(else_reg), cmp);
             }
             Action::Print => {
                 match self.stack.last() {
@@ -451,6 +448,9 @@ impl Dc4State {
             Action::ShellExec => {
                 return Err(DcError::ShellUnsupported);
             }
+            //
+            // Extensions
+            //
             Action::Version => {
                 let ver = env!("CARGO_PKG_VERSION_MAJOR").parse::<u64>().unwrap() << 24
                         | env!("CARGO_PKG_VERSION_MINOR").parse::<u64>().unwrap() << 16
@@ -458,6 +458,36 @@ impl Dc4State {
                 self.stack.push(DcValue::Num(BigReal::from(ver)));
                 self.stack.push(DcValue::Str(b"dc4".to_vec()));
             }
+            Action::IfElse(cmp, if_reg, else_reg) => {
+                return self.cond_macro(if_reg, Some(else_reg), cmp);
+            }
+            Action::CompareEq => self.binary_operator(|a, b| {
+                Ok(if a == b { BigReal::one() } else { BigReal::zero() })
+            })?,
+            Action::CompareZero => {
+                let v = match self.pop_top()? {
+                    DcValue::Num(n) if n.is_zero() => BigReal::one(),
+                    DcValue::Num(_) => BigReal::zero(),
+                    // This is what gavin dc does; unsure what BSD dc does:
+                    DcValue::Str(_) => return Err(DcError::NonNumericValue),
+                };
+                self.stack.push(DcValue::Num(v));
+            }
+            Action::CompareLt => self.binary_operator(|a, b| {
+                Ok(if b < a { BigReal::one() } else { BigReal::zero() })
+            })?,
+            Action::CompareLe => self.binary_operator(|a, b| {
+                Ok(if b <= a { BigReal::one() } else { BigReal::zero() })
+            })?,
+            Action::CompareGt => self.binary_operator(|a, b| {
+                Ok(if b > a { BigReal::one() } else { BigReal::zero() })
+            })?,
+            Action::CompareGe => self.binary_operator(|a, b| {
+                Ok(if b >= a { BigReal::one() } else { BigReal::zero() })
+            })?,
+            //
+            // Errors
+            //
             Action::Eof => (), // nothing to do
             Action::Unimplemented(c) => {
                 return Err(DcError::Unimplemented(c));
