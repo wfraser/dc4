@@ -72,19 +72,27 @@ pub enum Action {
     /// NOTE: DC4 purposely does not implement this or buffer the command to be executed.
     ShellExec,          // '!'
 
+    /// --- Extensions: ---
+
     /// DC4 extension.
     Version,            // '@'
-
-    /// End of input was reached.
-    Eof,
-
-    /// --- Extensions: ---
 
     // Comparison followed by "xey" where x and y are registers surrounding a literal "e".
     // From BSD and Gavin dc.
     IfElse(Comparison, u8, u8),
 
+    CompareEq,          // 'G': bsd, gavin
+    CompareZero,        // 'N': bsd, gavin
+    CompareLt,          // '(': bsd, gavin
+    CompareLe,          // '{': bsd, gavin
+
+    CompareGt,          // ')': gavin
+    CompareGe,          // '}': gavin
+
     // --- Errors: ---
+
+    /// End of input was reached.
+    Eof,
 
     /// Unimplemented (or unrecognized) command.
     Unimplemented(u8),
@@ -226,6 +234,14 @@ impl ParseState {
                 b';' => (ParseState::Register(RegisterAction::LoadRegArray), None),
 
                 b'@' => (self, Some(Action::Version)),
+
+                b'G' if extensions => (self, Some(Action::CompareEq)),
+                b'N' if extensions => (self, Some(Action::CompareZero)),
+                b'(' if extensions => (self, Some(Action::CompareLt)),
+                b'{' if extensions => (self, Some(Action::CompareLe)),
+
+                b')' if extensions => (self, Some(Action::CompareGt)),
+                b'}' if extensions => (self, Some(Action::CompareGe)),
 
                 _ => (self, Some(Action::Unimplemented(c))),
             },
