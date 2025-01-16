@@ -6,12 +6,14 @@
 
 pub struct Parser {
     state: Option<ParseState>,
+    extensions: bool,
 }
 
 impl Default for Parser {
     fn default() -> Self {
         Self {
             state: Some(ParseState::Start),
+            extensions: true,
         }
     }
 }
@@ -76,7 +78,13 @@ pub enum Action {
     /// End of input was reached.
     Eof,
 
-    // Errors:
+    /// --- Extensions: ---
+
+    // Comparison followed by "xey" where x and y are registers surrounding a literal "e".
+    // From BSD and Gavin dc.
+    IfElse(Comparison, u8, u8),
+
+    // --- Errors: ---
 
     /// Unimplemented (or unrecognized) command.
     Unimplemented(u8),
@@ -115,11 +123,12 @@ enum ParseState {
     ShellExec,
     Bang,
     Register(RegisterAction),
+    TwoRegister(Comparison, u8, bool),
 }
 
 impl Parser {
     pub fn step(&mut self, input: &mut Option<u8>) -> Option<Action> {
-        let (new_state, result) = self.state.take().unwrap().next(input);
+        let (new_state, result) = self.state.take().unwrap().next(input, self.extensions);
         self.state = Some(new_state);
         result
     }
@@ -129,7 +138,7 @@ impl ParseState {
     /// Given the current state and an input character, return the new state and maybe an Action.
     /// If `input` is None after this call, it means the character was consumed. If not, it should
     /// be re-issued again.
-    pub fn next(self, input: &mut Option<u8>) -> (Self, Option<Action>) {
+    pub fn next(self, input: &mut Option<u8>, extensions: bool) -> (Self, Option<Action>) {
         let Some(c) = input.take() else {
             // We are at EOF. We need to complete whatever we're in the middle of, or return
             // Action::Eof to positively indicate that we're done.
@@ -146,6 +155,10 @@ impl ParseState {
                     Action::PushString,
                 ParseState::ShellExec => Action::ShellExec,
                 ParseState::Register(_register_action) =>
+                    Action::InputError(std::io::ErrorKind::UnexpectedEof.into()),
+                ParseState::TwoRegister(cmp, first_reg, false) =>
+                    Action::Register(RegisterAction::Comparison(cmp), first_reg),
+                ParseState::TwoRegister(_cmp, _first_reg, true) =>
                     Action::InputError(std::io::ErrorKind::UnexpectedEof.into()),
             };
             return (ParseState::Start, Some(action));
@@ -260,7 +273,25 @@ impl ParseState {
                 b'=' => (ParseState::Register(RegisterAction::Comparison(Comparison::Ne)), None),
                 _ => (ParseState::ShellExec, None),
             }
-            ParseState::Register(action) => (ParseState::Start, Some(Action::Register(action, c))),
+            ParseState::Register(action) => match action {
+                RegisterAction::Comparison(cmp) if extensions => {
+                    (ParseState::TwoRegister(cmp, c, false), None)
+                }
+                _ => (ParseState::Start, Some(Action::Register(action, c))),
+            }
+            ParseState::TwoRegister(cmp, first_reg, false) => {
+                if c == b'e' {
+                    // Confirmed; read the next register.
+                    (ParseState::TwoRegister(cmp, first_reg, true), None)
+                } else {
+                    // Input didn't match; put it back.
+                    *input = Some(c);
+                    let action = RegisterAction::Comparison(cmp);
+                    (ParseState::Start, Some(Action::Register(action, first_reg)))
+                }
+            }
+            ParseState::TwoRegister(cmp, first_reg, true) =>
+                (ParseState::Start, Some(Action::IfElse(cmp, first_reg, c))),
         }
     }
 }
