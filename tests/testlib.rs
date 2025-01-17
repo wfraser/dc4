@@ -496,3 +496,44 @@ fn test_string_escaped_brackets() {
     assert_eq!(dc4_run(b"[\\[foo]f"), "[foo\n");
     assert_eq!(dc4_run(b"[\\\\foo]f"), "\\foo\n");
 }
+
+#[test]
+fn test_ifelse() {
+    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy 1 _1 =xey"), "r2\n");
+    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy _1 _1 =xey"), "r1\n");
+    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy 1 _1 =xe"), "dc4 cargo test: error reading input: unexpected end of file\n");
+    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy _1 _1 =x"), "r1\n");
+
+    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy 1 _1 !=xey"), "r1\n");
+    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy _1 _1 !=xey"), "r2\n");
+    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy 1 _1 !=xe"), "dc4 cargo test: error reading input: unexpected end of file\n");
+    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy 1 _1 !=x"), "r1\n");
+}
+
+#[test]
+fn test_compares() {
+    assert_eq!(dc4_run(b"7 _7 Gf"), "0\n");
+    assert_eq!(dc4_run(b"7 7 Gf"), "1\n");
+    assert_eq!(dc4_run(b"[foo] 7 Gf"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
+
+    assert_eq!(dc4_run(b"7 Nf"), "0\n");
+    assert_eq!(dc4_run(b"0 Nf"), "1\n");
+    assert_eq!(dc4_run(b"0.000 Nf"), "1\n");
+    assert_eq!(dc4_run(b"[foo] 7 Gf"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
+
+    assert_eq!(dc4_run(b"7 _7 (f"), "1\n");
+    assert_eq!(dc4_run(b"7 7 (f"), "0\n");
+    assert_eq!(dc4_run(b"[foo] 7 (f"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
+
+    assert_eq!(dc4_run(b"7 _7 {f"), "1\n");
+    assert_eq!(dc4_run(b"7 7 {f"), "1\n");
+    assert_eq!(dc4_run(b"[foo] 7 {f"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
+
+    assert_eq!(dc4_run(b"_7 7 )f"), "1\n");
+    assert_eq!(dc4_run(b"7 7 )f"), "0\n");
+    assert_eq!(dc4_run(b"[foo] 7 )f"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
+
+    assert_eq!(dc4_run(b"_7 7 }f"), "1\n");
+    assert_eq!(dc4_run(b"7 7 }f"), "1\n");
+    assert_eq!(dc4_run(b"[foo] 7 }f"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
+}
