@@ -3,6 +3,7 @@ dc token vocabulary
 
 # Implementations
 1. `cherry`: the original version by Lorinda Cherry (as described by 7th Edition Unix man page, 1985)
+    - every implementation is a superset of this, with the exception of the `!` (ShellExec) token.
 2. `gnu`
 3. `bsd`: by Otto Moerbeek
 5. `gavin`: Gavin Howard's version, present on macOS since Ventura
