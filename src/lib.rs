@@ -9,7 +9,7 @@
 mod big_real;
 mod dcregisters;
 pub mod parser;
-mod reader_parser;
+pub mod reader_parser;
 mod state;
 
 use parser::Action;
