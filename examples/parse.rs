@@ -17,6 +17,11 @@ fn main() {
     } else {
         Box::new(Cursor::new(args))
     };
+    print_parse(input, 0);
+}
+
+fn print_parse(input: impl Read, indent: usize) {
+    let pre = " ".repeat(indent * 4);
     let parser = ReaderParser::new(input);
     let mut pending = vec![];
     for action in parser {
@@ -24,11 +29,14 @@ fn main() {
             Action::NumberChar(c) | Action::StringChar(c) => pending.push(c),
             Action::PushNumber | Action::PushString => {
                 let s = String::from_utf8_lossy(&pending);
-                println!("{action:?}({s:?})");
+                println!("{pre}{action:?}({s:?})");
+                if matches!(action, Action::PushString) {
+                    print_parse(Cursor::new(&pending), indent + 1);
+                }
                 pending = vec![];
             }
-            Action::Unimplemented(c) => println!("Unimplemented({:?})", char::from(c)),
-            _ => println!("{action:?}"),
+            Action::Unimplemented(c) => println!("{pre}Unimplemented({:?})", char::from(c)),
+            _ => println!("{pre}{action:?}"),
         }
     }
 }
