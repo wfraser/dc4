@@ -35,6 +35,7 @@ fn print_parse(input: impl Read, indent: usize) {
                 }
                 pending = vec![];
             }
+            Action::Register(a, r) => println!("{pre}Register({a:?}, {:?})", char::from(r)),
             Action::Unimplemented(c) => println!("{pre}Unimplemented({:?})", char::from(c)),
             _ => println!("{pre}{action:?}"),
         }
