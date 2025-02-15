@@ -57,9 +57,6 @@ fn parse_arguments<'a>(args: &'a [&'a str])
     let mut inputs: Vec<DcInput<'a>> = Vec::new();
     let mut bare_file_args: Vec<DcInput<'a>> = Vec::new();
 
-    let expression_str = "--expression=";
-    let file_str = "--file=";
-
     let mut process_stdin = true;
     let mut seen_double_dash = false;
 
@@ -95,10 +92,7 @@ fn parse_arguments<'a>(args: &'a [&'a str])
             skip = 1;
             process_stdin = false;
         }
-        else if arg.len() > expression_str.len()
-                && &arg[..expression_str.len()] == expression_str {
-            let p = &arg[expression_str.len()..];
-
+        else if let Some(p) = arg.strip_prefix("--expression=") {
             inputs.push(DcInput::Expression(p));
             process_stdin = false;
         }
@@ -124,10 +118,7 @@ fn parse_arguments<'a>(args: &'a [&'a str])
             bare_file_args.push(DcInput::Stdin);
             process_stdin = false;
         }
-        else if arg.len() > file_str.len()
-                && &arg[..file_str.len()] == file_str {
-
-            let p = &arg[file_str.len()..];
+        else if let Some(p) = arg.strip_prefix("--file=") {
             inputs.push(DcInput::File(p));
             process_stdin = false;
         }
