@@ -4,16 +4,18 @@
 // Copyright (c) 2019-2025 by William R. Fraser
 //
 
+use crate::Flavor;
+
 pub struct Parser {
     state: Option<ParseState>,
-    extensions: bool,
+    pub flavor: Flavor,
 }
 
 impl Default for Parser {
     fn default() -> Self {
         Self {
             state: Some(ParseState::Start),
-            extensions: true,
+            flavor: Flavor::Gnu,
         }
     }
 }
@@ -72,7 +74,7 @@ pub enum Action {
     /// NOTE: DC4 purposely does not implement this or buffer the command to be executed.
     ShellExec,          // '!'
 
-    /// --- Extensions: ---
+    // --- Extensions: ---
 
     /// DC4 extension.
     Version,            // '@'
@@ -136,7 +138,7 @@ enum ParseState {
 
 impl Parser {
     pub fn step(&mut self, input: &mut Option<u8>) -> Option<Action> {
-        let (new_state, result) = self.state.take().unwrap().next(input, self.extensions);
+        let (new_state, result) = self.state.take().unwrap().next(input, self.flavor);
         self.state = Some(new_state);
         result
     }
@@ -146,7 +148,11 @@ impl ParseState {
     /// Given the current state and an input character, return the new state and maybe an Action.
     /// If `input` is None after this call, it means the character was consumed. If not, it should
     /// be re-issued again.
-    pub fn next(self, input: &mut Option<u8>, extensions: bool) -> (Self, Option<Action>) {
+    pub fn next(self, input: &mut Option<u8>, flavor: Flavor) -> (Self, Option<Action>) {
+        let bsd = matches!(flavor, Flavor::Bsd);
+        let gavin = matches!(flavor, Flavor::Gavin);
+        // otherwise, Gnu is the assumed default
+
         let Some(c) = input.take() else {
             // We are at EOF. We need to complete whatever we're in the middle of, or return
             // Action::Eof to positively indicate that we're done.
@@ -235,13 +241,13 @@ impl ParseState {
 
                 b'@' => (self, Some(Action::Version)),
 
-                b'G' if extensions => (self, Some(Action::CompareEq)),
-                b'N' if extensions => (self, Some(Action::CompareZero)),
-                b'(' if extensions => (self, Some(Action::CompareLt)),
-                b'{' if extensions => (self, Some(Action::CompareLe)),
+                b'G' if bsd || gavin => (self, Some(Action::CompareEq)),
+                b'N' if bsd || gavin => (self, Some(Action::CompareZero)),
+                b'(' if bsd || gavin => (self, Some(Action::CompareLt)),
+                b'{' if bsd || gavin => (self, Some(Action::CompareLe)),
 
-                b')' if extensions => (self, Some(Action::CompareGt)),
-                b'}' if extensions => (self, Some(Action::CompareGe)),
+                b')' if gavin => (self, Some(Action::CompareGt)),
+                b'}' if gavin => (self, Some(Action::CompareGe)),
 
                 _ => (self, Some(Action::Unimplemented(c))),
             },
@@ -290,7 +296,7 @@ impl ParseState {
                 _ => (ParseState::ShellExec, None),
             }
             ParseState::Register(action) => match action {
-                RegisterAction::Comparison(cmp) if extensions => {
+                RegisterAction::Comparison(cmp) if bsd || gavin => {
                     (ParseState::TwoRegister(cmp, c, false), None)
                 }
                 _ => (ParseState::Start, Some(Action::Register(action, c))),

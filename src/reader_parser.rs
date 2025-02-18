@@ -1,4 +1,5 @@
 use std::io::{Read, Bytes};
+use crate::Flavor;
 use crate::parser::{Parser, Action};
 
 pub struct ReaderParser<R: Read> {
@@ -55,5 +56,9 @@ impl<R: Read> ReaderParser<R> {
             parser: Parser::default(),
             stashed: None,
         }
+    }
+
+    pub fn set_flavor(&mut self, flavor: Flavor) {
+        self.parser.flavor = flavor;
     }
 }

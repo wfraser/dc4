@@ -14,8 +14,7 @@ use std::fs::File;
 use std::io;
 use std::path::Path;
 
-use dc4::Dc4;
-use dc4::DcResult;
+use dc4::{Dc4, DcResult, Flavor};
 
 fn progname() -> String {
     Path::new(env::args_os().next().expect("no program name?!").as_os_str())
@@ -33,6 +32,7 @@ fn print_usage() {
     // 79:    ###############################################################################
     println!("usage: {} [options] [file ...]", progname());
     println!("options:");
+    println!("  --flavor gnu|bsd|gavin          which dc to behave like (default: gnu)");
     println!("  -e EXPR | --expression=EXPR     evaluate expression");
     println!("  -f FILE | --file=FILE           evaluate contents of file");
     println!("  -h | --help                     display this help and exit");
@@ -53,12 +53,13 @@ enum DcInput<'a> {
 }
 
 fn parse_arguments<'a>(args: &'a [&'a str])
-        -> Option<Vec<DcInput<'a>>> {
+        -> Option<(Vec<DcInput<'a>>, Flavor)> {
     let mut inputs: Vec<DcInput<'a>> = Vec::new();
     let mut bare_file_args: Vec<DcInput<'a>> = Vec::new();
 
     let mut process_stdin = true;
     let mut seen_double_dash = false;
+    let mut flavor_str = "gnu";
 
     let mut skip = 0; // number of args to skip next time around
     for (i, arg) in args.iter().cloned().enumerate() {
@@ -111,6 +112,18 @@ fn parse_arguments<'a>(args: &'a [&'a str])
             skip = 1;
             process_stdin = false;
         }
+        else if arg == "--flavor" {
+            if i + 1 == args.len() {
+                println!("\"--flavor\" must be followed by an argument.");
+                return None;
+            }
+
+            flavor_str = args[i + 1];
+            skip = 1;
+        }
+        else if let Some(s) = arg.strip_prefix("--flavor=") {
+            flavor_str = s;
+        }
         else if arg == "--" {
             seen_double_dash = true;
         }
@@ -134,19 +147,29 @@ fn parse_arguments<'a>(args: &'a [&'a str])
         inputs.push(DcInput::Stdin);
     }
 
-    Some(inputs)
+    let flavor = match flavor_str {
+        "gnu" => Flavor::Gnu,
+        "bsd" => Flavor::Bsd,
+        "gavin" => Flavor::Gavin,
+        _ => {
+            println!("invalid flavor \"{flavor_str}\"");
+            return None;
+        }
+    };
+
+    Some((inputs, flavor))
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let args_references: Vec<&str> = args.iter().map(|owned| &owned[..]).collect();
 
-    let inputs: Vec<DcInput<'_>> = match parse_arguments(&args_references) {
+    let (inputs, flavor) = match parse_arguments(&args_references) {
         Some(x) => x,
         None => return,
     };
 
-    let mut dc = Dc4::new(progname());
+    let mut dc = Dc4::new(progname(), flavor);
 
     for input in inputs {
         let result = match input {
@@ -186,8 +209,9 @@ mod test {
 
     #[test]
     fn test_parseargs() {
-        let args: Vec<&str> = vec!["-e", "e1", "file1", "--expression=e2", "file2", "--file=file3", "-", "file4"];
-        let result = parse_arguments(&args).unwrap();
+        let args: Vec<&str> = vec!["-e", "e1", "file1", "--flavor", "bsd", "--expression=e2", "file2", "--file=file3", "-", "file4"];
+        let (result, flavor) = parse_arguments(&args).unwrap();
+        assert_eq!(flavor, Flavor::Bsd);
 
         // first, the options:
         assert_eq!(result[0], DcInput::Expression("e1"));

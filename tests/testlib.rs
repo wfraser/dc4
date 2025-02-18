@@ -6,12 +6,22 @@
 
 #![deny(rust_2018_idioms)]
 
+use dc4::Flavor::{self, *};
+
 fn dc4_run(expr: &[u8]) -> String {
-    String::from_utf8(dc4_run_bytes(expr)).unwrap()
+    dc4_run_v(Gnu, expr)
+}
+
+fn dc4_run_v(flavor: Flavor, expr: &[u8]) -> String {
+    String::from_utf8(dc4_run_bytes_v(flavor, expr)).unwrap()
 }
 
 fn dc4_run_bytes(expr: &[u8]) -> Vec<u8> {
-    let mut dc = dc4::Dc4::new("dc4 cargo test".to_string());
+    dc4_run_bytes_v(Gnu, expr)
+}
+
+fn dc4_run_bytes_v(flavor: Flavor, expr: &[u8]) -> Vec<u8> {
+    let mut dc = dc4::Dc4::new("dc4 cargo test".to_string(), flavor);
     let mut out = Vec::<u8>::new();
 
     dc.text(expr.to_vec(), &mut out);
@@ -20,7 +30,7 @@ fn dc4_run_bytes(expr: &[u8]) -> Vec<u8> {
 }
 
 fn dc4_run_two(expr1: &[u8], expr2: &[u8]) -> String {
-    let mut dc = dc4::Dc4::new("dc4 cargo test".to_string());
+    let mut dc = dc4::Dc4::new("dc4 cargo test".to_string(), Gnu);
     let mut out = Vec::<u8>::new();
 
     dc.text(expr1.to_vec(), &mut out);
@@ -499,41 +509,41 @@ fn test_string_escaped_brackets() {
 
 #[test]
 fn test_ifelse() {
-    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy 1 _1 =xey"), "r2\n");
-    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy _1 _1 =xey"), "r1\n");
-    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy 1 _1 =xe"), "dc4 cargo test: error reading input: unexpected end of file\n");
+    assert_eq!(dc4_run_v(Bsd, b"[[r1]p]sx [[r2]p]sy 1 _1 =xey"), "r2\n");
+    assert_eq!(dc4_run_v(Bsd, b"[[r1]p]sx [[r2]p]sy _1 _1 =xey"), "r1\n");
+    assert_eq!(dc4_run_v(Bsd, b"[[r1]p]sx [[r2]p]sy 1 _1 =xe"), "dc4 cargo test: error reading input: unexpected end of file\n");
     assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy _1 _1 =x"), "r1\n");
 
-    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy 1 _1 !=xey"), "r1\n");
-    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy _1 _1 !=xey"), "r2\n");
-    assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy 1 _1 !=xe"), "dc4 cargo test: error reading input: unexpected end of file\n");
+    assert_eq!(dc4_run_v(Bsd, b"[[r1]p]sx [[r2]p]sy 1 _1 !=xey"), "r1\n");
+    assert_eq!(dc4_run_v(Bsd, b"[[r1]p]sx [[r2]p]sy _1 _1 !=xey"), "r2\n");
+    assert_eq!(dc4_run_v(Bsd, b"[[r1]p]sx [[r2]p]sy 1 _1 !=xe"), "dc4 cargo test: error reading input: unexpected end of file\n");
     assert_eq!(dc4_run(b"[[r1]p]sx [[r2]p]sy 1 _1 !=x"), "r1\n");
 }
 
 #[test]
 fn test_compares() {
-    assert_eq!(dc4_run(b"7 _7 Gf"), "0\n");
-    assert_eq!(dc4_run(b"7 7 Gf"), "1\n");
-    assert_eq!(dc4_run(b"[foo] 7 Gf"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
+    assert_eq!(dc4_run_v(Bsd, b"7 _7 Gf"), "0\n");
+    assert_eq!(dc4_run_v(Bsd, b"7 7 Gf"), "1\n");
+    assert_eq!(dc4_run_v(Bsd, b"[foo] 7 Gf"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
 
-    assert_eq!(dc4_run(b"7 Nf"), "0\n");
-    assert_eq!(dc4_run(b"0 Nf"), "1\n");
-    assert_eq!(dc4_run(b"0.000 Nf"), "1\n");
-    assert_eq!(dc4_run(b"[foo] 7 Gf"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
+    assert_eq!(dc4_run_v(Bsd, b"7 Nf"), "0\n");
+    assert_eq!(dc4_run_v(Bsd, b"0 Nf"), "1\n");
+    assert_eq!(dc4_run_v(Bsd, b"0.000 Nf"), "1\n");
+    assert_eq!(dc4_run_v(Bsd, b"[foo] 7 Gf"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
 
-    assert_eq!(dc4_run(b"7 _7 (f"), "1\n");
-    assert_eq!(dc4_run(b"7 7 (f"), "0\n");
-    assert_eq!(dc4_run(b"[foo] 7 (f"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
+    assert_eq!(dc4_run_v(Bsd, b"7 _7 (f"), "1\n");
+    assert_eq!(dc4_run_v(Bsd, b"7 7 (f"), "0\n");
+    assert_eq!(dc4_run_v(Bsd, b"[foo] 7 (f"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
 
-    assert_eq!(dc4_run(b"7 _7 {f"), "1\n");
-    assert_eq!(dc4_run(b"7 7 {f"), "1\n");
-    assert_eq!(dc4_run(b"[foo] 7 {f"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
+    assert_eq!(dc4_run_v(Bsd, b"7 _7 {f"), "1\n");
+    assert_eq!(dc4_run_v(Bsd, b"7 7 {f"), "1\n");
+    assert_eq!(dc4_run_v(Bsd, b"[foo] 7 {f"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
 
-    assert_eq!(dc4_run(b"_7 7 )f"), "1\n");
-    assert_eq!(dc4_run(b"7 7 )f"), "0\n");
-    assert_eq!(dc4_run(b"[foo] 7 )f"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
+    assert_eq!(dc4_run_v(Gavin, b"_7 7 )f"), "1\n");
+    assert_eq!(dc4_run_v(Gavin, b"7 7 )f"), "0\n");
+    assert_eq!(dc4_run_v(Gavin, b"[foo] 7 )f"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
 
-    assert_eq!(dc4_run(b"_7 7 }f"), "1\n");
-    assert_eq!(dc4_run(b"7 7 }f"), "1\n");
-    assert_eq!(dc4_run(b"[foo] 7 }f"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
+    assert_eq!(dc4_run_v(Gavin, b"_7 7 }f"), "1\n");
+    assert_eq!(dc4_run_v(Gavin, b"7 7 }f"), "1\n");
+    assert_eq!(dc4_run_v(Gavin, b"[foo] 7 }f"), "dc4 cargo test: non-numeric value\n7\nfoo\n");
 }

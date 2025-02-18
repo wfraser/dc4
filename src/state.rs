@@ -12,10 +12,11 @@ use num_traits::{One, ToPrimitive, Zero};
 use crate::big_real::BigReal;
 use crate::dcregisters::DcRegisters;
 use crate::parser::{Action, Comparison, Parser, RegisterAction};
-use crate::{DcValue, DcResult, DcError};
+use crate::{DcValue, DcResult, DcError, Flavor};
 
 pub struct Dc4State {
-    program_name: String,
+    pub program_name: String,
+    pub flavor: Flavor,
     stack: Vec<DcValue>,
     registers: DcRegisters,
     scale: u32,
@@ -26,9 +27,10 @@ pub struct Dc4State {
 }
 
 impl Dc4State {
-    pub fn new(program_name: String) -> Self {
+    pub fn new(program_name: String, flavor: Flavor) -> Self {
         Self {
             program_name,
+            flavor,
             stack: vec![],
             registers: DcRegisters::new(),
             scale: 0,
@@ -41,6 +43,7 @@ impl Dc4State {
 
     pub fn run_macro(&mut self, mut text: Vec<u8>, w: &mut impl Write) -> DcResult {
         let mut parser = Parser::default();
+        parser.flavor = self.flavor;
         let mut tail_recursion_depth = 0;
         let mut pos = 0;
         let mut cur = None;

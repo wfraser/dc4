@@ -11,7 +11,7 @@
 /// it reads them. When it reaches EOF, it prints the resulting sum. Because it uses Dc4, it
 /// supports arbitrary precision.
 
-use dc4::{Dc4, DcError};
+use dc4::{Dc4, DcError, Flavor};
 use dc4::parser::Action;
 use std::io::{self, BufRead, Write};
 
@@ -94,7 +94,7 @@ fn action(dc: &mut Dc4, action: Action, w: &mut impl Write)
 }
 
 fn run(r: impl BufRead, mut w: impl Write) -> Result<(), Error> {
-    let mut dc = Dc4::new("sum-numbers".to_owned());
+    let mut dc = Dc4::new("sum-numbers".to_owned(), Flavor::Gnu);
 
     let opts = Options::parse(std::env::args())
         .unwrap_or_else(|e| {
