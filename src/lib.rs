@@ -16,6 +16,13 @@ use parser::Action;
 use state::Dc4State;
 use std::io::{BufRead, Write};
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Flavor {
+    Gnu,
+    Bsd,
+    Gavin,
+}
+
 /// Desk Calculator 4
 pub struct Dc4 {
     state: Dc4State,
@@ -23,8 +30,8 @@ pub struct Dc4 {
 
 impl Dc4 {
     /// Make a new DC4 instance with the given name.
-    pub fn new(program_name: String) -> Self {
-        Self { state: Dc4State::new(program_name) }
+    pub fn new(program_name: String, flavor: Flavor) -> Self {
+        Self { state: Dc4State::new(program_name, flavor) }
     }
 
     /// Run a program from a stream of bytes.
@@ -34,6 +41,7 @@ impl Dc4 {
     pub fn stream(&mut self, r: &mut impl BufRead, w: &mut impl Write) -> DcResult
     {
         let mut actions = reader_parser::ReaderParser::new(r);
+        actions.set_flavor(self.state.flavor);
         // There's no safe way to stop mid-stream on an error, because ReaderParser may have read
         // the source stream past the action that caused it, and so returning from here could lose
         // data from the source stream. So you can't really make a `try_stream()` that doesn't do
