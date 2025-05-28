@@ -1,0 +1,15 @@
+# factorial.dc :: calculates the factorial of a number
+# run: dc4 -e <number> -f factorial.dc
+
+dsn         # duplicate to register n
+
+[
+    ln      # load n
+    1-      # decrement
+    dsn     # duplicate back to n
+    *       # multiply with accumulated value
+    ln1<f   # load n and if 1 is less, run f again
+]dsf        # duplicate this macro to f
+
+x           # run the macro
+f           # print the stack

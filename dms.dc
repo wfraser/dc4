@@ -1,0 +1,46 @@
+# dms.dc :: convert decimal degrees to degrees, minutes, and seconds
+# run: dc4 -e <degrees> -f dms.dc
+
+# strings for display
+[° ]sd
+[' ]sm
+["
+]ss
+
+# constants
+4k
+1 60/sM
+1 3600/sS
+
+# main macro
+[
+    ln      # get sequence number
+    d0=q    # are we done?
+    1-sn    # decrement sequence number
+    LR      # pop from reversed stack
+
+    0k      # integer math
+    d       # save original value
+    1/      # get whole part
+    dn      # print degrees value
+    ldn     # print degree sign
+    -d      # subtract whole part and duplicate again
+    lM/     # divide by minutes constant
+    dn      # print minutes value
+    lmn     # print minutes sign
+    lM*-    # multiply by minutes constant and subtract
+    2k      # 2 decimals of precision for seconds
+    lS/n    # divide by seconds constant and print
+    lsn     # print seconds sign
+    lxx     # tail recursion
+]sx
+[3q]sq      # quit macro
+[
+    ln1+sn  # count numbers
+    SR      # push to R stack
+    z0<r    # if stack depth is nonzero, loop
+]sr
+
+0sn         # initialize number count
+z0<r        # if we have any numbers, run reverse macro
+lxx         # run main macro
