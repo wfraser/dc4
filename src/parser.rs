@@ -4,6 +4,7 @@
 // Copyright (c) 2019-2025 by William R. Fraser
 //
 
+#[derive(Clone)]
 pub struct Parser {
     state: Option<ParseState>,
 }
@@ -85,7 +86,7 @@ pub enum Action {
     InputError(std::io::Error),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Comparison {
     Gt, // '>'
     Le, // '!>'
@@ -95,7 +96,7 @@ pub enum Comparison {
     Ne, // '!='
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RegisterAction {
     Store,              // 's'
     Load,               // 'l'
@@ -106,7 +107,7 @@ pub enum RegisterAction {
     LoadRegArray,       // ';'
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum ParseState {
     Start,
     Comment,
@@ -122,6 +123,25 @@ impl Parser {
         let (new_state, result) = self.state.take().unwrap().next(input);
         self.state = Some(new_state);
         result
+    }
+
+    pub fn next_action<'a>(&mut self, input: &'a [u8]) -> (Action, &'a [u8]) {
+        let mut cur = None;
+        let mut pos = 0;
+        let mut advance = 0;
+        loop {
+            if cur.is_none() {
+                cur = input.get(pos).cloned();
+                advance = if cur.is_some() { 1 } else { 0 };
+            }
+            let action = self.step(&mut cur);
+            if cur.is_none() {
+                pos += advance;
+            }
+            if let Some(action) = action {
+                return (action, &input[pos..]);
+            }
+        }
     }
 }
 

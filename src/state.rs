@@ -42,67 +42,55 @@ impl Dc4State {
     pub fn run_macro(&mut self, mut text: Vec<u8>, w: &mut impl Write) -> DcResult {
         let mut parser = Parser::default();
         let mut tail_recursion_depth = 0;
-        let mut pos = 0;
-        let mut cur = None;
-        let mut advance = 0;
+        let mut text_slice = &text[..];
         loop {
-            if cur.is_none() {
-                cur = text.get(pos).cloned();
-                advance = if cur.is_some() { 1 } else { 0 };
+            let (action, next_text) = parser.next_action(text_slice);
+            text_slice = next_text;
+
+            if let Action::Eof = action {
+                return DcResult::Continue;
             }
 
-            let action = parser.step(&mut cur);
-            if cur.is_none() {
-                pos += advance;
+            let mut result = self.action(action, w);
+
+            while let Ok(DcResult::Macro(new_text)) = result {
+                // with a clone of the parser, see if we're at the last action
+                if let (Action::Eof, _) = parser.clone().next_action(text_slice) {
+                    // tail recursion! :D
+                    // replace the current text with the new text and start over
+                    text = new_text;
+                    text_slice = &text[..];
+                    tail_recursion_depth += 1;
+                    result = Ok(DcResult::Continue);
+                } else {
+                    result = Ok(self.run_macro(new_text, w));
+                }
             }
 
-            match action {
-                None => (),
-                Some(Action::Eof) => return DcResult::Continue,
-                Some(action) => {
-                    let mut result = self.action(action, w);
-
-                    while let Ok(DcResult::Macro(new_text)) = result {
-                        if pos == text.len() {
-                            // tail recursion! :D
-                            // replace the current text with the new text and start over
-                            text = new_text;
-                            pos = 0;
-                            cur = None;
-                            advance = 0;
-                            tail_recursion_depth += 1;
-                            result = Ok(DcResult::Continue);
-                        } else {
-                            result = Ok(self.run_macro(new_text, w));
-                        }
+            // the quit logic is the same for both types except for which result they return
+            macro_rules! quit_handler {
+                ($n:expr, $result_ctor:path) => {
+                    if $n - 1 > tail_recursion_depth {
+                        return $result_ctor($n - tail_recursion_depth - 1);
+                    } else if $n - 1 == tail_recursion_depth {
+                        // quitting stops here
+                        return DcResult::Continue;
+                    } else if $n > 0 && tail_recursion_depth > 0 {
+                        // if we're doing tail recursion at all, it means our parent virtual
+                        // stack frame is at the end of its text, so just unroll all the
+                        // virtual frames.
+                        return DcResult::Continue;
                     }
+                }
+            }
 
-                    // the quit logic is the same for both types except for which result they return
-                    macro_rules! quit_handler {
-                        ($n:expr, $result_ctor:path) => {
-                            if $n - 1 > tail_recursion_depth {
-                                return $result_ctor($n - tail_recursion_depth - 1);
-                            } else if $n - 1 == tail_recursion_depth {
-                                // quitting stops here
-                                return DcResult::Continue;
-                            } else if $n > 0 && tail_recursion_depth > 0 {
-                                // if we're doing tail recursion at all, it means our parent virtual
-                                // stack frame is at the end of its text, so just unroll all the
-                                // virtual frames.
-                                return DcResult::Continue;
-                            }
-                        }
-                    }
-
-                    match result {
-                        Ok(DcResult::Continue) => (),
-                        Ok(DcResult::QuitLevels(n)) => quit_handler!(n, DcResult::QuitLevels),
-                        Ok(DcResult::Terminate(n)) => quit_handler!(n, DcResult::Terminate),
-                        Ok(DcResult::Macro(_)) => unreachable!(),
-                        Err(msg) => {
-                            self.error(w, format_args!("{msg}"));
-                        }
-                    }
+            match result {
+                Ok(DcResult::Continue) => (),
+                Ok(DcResult::QuitLevels(n)) => quit_handler!(n, DcResult::QuitLevels),
+                Ok(DcResult::Terminate(n)) => quit_handler!(n, DcResult::Terminate),
+                Ok(DcResult::Macro(_)) => unreachable!(),
+                Err(msg) => {
+                    self.error(w, format_args!("{msg}"));
                 }
             }
         }

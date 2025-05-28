@@ -1,7 +1,7 @@
 //
 // dc4 test suite
 //
-// Copyright (c) 2015-2021 by William R. Fraser
+// Copyright (c) 2015-2025 by William R. Fraser
 //
 
 #![deny(rust_2018_idioms)]
@@ -283,6 +283,28 @@ fn test_stackoverflow() {
             + "d" + iterations + "=q" // if the counter hits the magic number, invoke the 'q' macro
             + "lmx"                   // invoke ourselves
         + "]dsmx";                    // store to 'm' and execute
+
+    assert_eq!(dc4_run(program.as_bytes()), iterations.to_string() + "\n");
+}
+
+#[test]
+#[ignore] // because this test is so slow. be sure to run 'cargo test -- --ignored' occasionally.
+fn test_stackoverflow_extratext() {
+    let iterations = "200000";
+
+    let program = String::new()
+        + "[pq]sq"      // 'q' macro to print and quit
+        + "0"           // start counter
+        + "["
+            + "1+"                    // increment the counter
+            + "d" + iterations + "=q" // if the counter hits the magic number, invoke the 'q' macro
+            + "lmx"                   // invoke ourselves
+            + "# blah"                // and some following text which is useless
+        + "]dsmx";                    // store to 'm' and execute
+
+    // A text-based approach to tail recursion detection will fail here because at the point of the
+    // macro invocation, the text is not at the end of the macro (there's a comment after it).
+    // A parser-based one will see that the remaining text does nothing, and allows tail recursion.
 
     assert_eq!(dc4_run(program.as_bytes()), iterations.to_string() + "\n");
 }
