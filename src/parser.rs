@@ -125,21 +125,18 @@ impl Parser {
         result
     }
 
-    pub fn next_action<'a>(&mut self, input: &'a [u8]) -> (Action, &'a [u8]) {
-        let mut cur = None;
-        let mut pos = 0;
-        let mut advance = 0;
+    pub fn next_action<'a>(&mut self, mut input: &'a [u8]) -> (Action, &'a [u8]) {
         loop {
-            if cur.is_none() {
-                cur = input.get(pos).cloned();
-                advance = if cur.is_some() { 1 } else { 0 };
-            }
+            let (mut cur, next) = match input {
+                [x, xs @ ..] => (Some(*x), xs),
+                [] => (None, input),
+            };
             let action = self.step(&mut cur);
             if cur.is_none() {
-                pos += advance;
+                input = next;
             }
             if let Some(action) = action {
-                return (action, &input[pos..]);
+                return (action, input);
             }
         }
     }
