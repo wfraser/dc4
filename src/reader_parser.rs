@@ -1,13 +1,13 @@
-use std::io::{Read, Bytes};
+use std::io::{BufRead, Bytes};
 use crate::parser::{Parser, Action};
 
-pub struct ReaderParser<R: Read> {
+pub struct ReaderParser<R> {
     inner: Option<Bytes<R>>,
     parser: Parser,
     stashed: Option<u8>,
 }
 
-impl<R: Read> Iterator for ReaderParser<R> {
+impl<R: BufRead> Iterator for ReaderParser<R> {
     type Item = Action;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -48,7 +48,7 @@ impl<R: Read> Iterator for ReaderParser<R> {
     }
 }
 
-impl<R: Read> ReaderParser<R> {
+impl<R: BufRead> ReaderParser<R> {
     pub fn new(input: R) -> Self {
         Self {
             inner: Some(input.bytes()),
