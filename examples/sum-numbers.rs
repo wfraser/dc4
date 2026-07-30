@@ -6,10 +6,10 @@
 
 #![deny(rust_2018_idioms)]
 
-/// This is an example of how Dc4 can be used as a library for doing useful numeric operations.
-/// The program reads numbers from input, delimited by whitespace, and uses Dc4 to add them up as
-/// it reads them. When it reaches EOF, it prints the resulting sum. Because it uses Dc4, it
-/// supports arbitrary precision.
+//! This is an example of how Dc4 can be used as a library for doing useful numeric operations.
+//! The program reads numbers from input, delimited by whitespace, and uses Dc4 to add them up as
+//! it reads them. When it reaches EOF, it prints the resulting sum. Because it uses Dc4, it
+//! supports arbitrary precision.
 
 use dc4::{Dc4, DcError};
 use dc4::parser::Action;
